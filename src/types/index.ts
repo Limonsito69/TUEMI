@@ -41,7 +41,7 @@ export type Route = {
 export type Alert = {
   id: string;
   vehiclePlate: string;
-  type: 'GPS sin señal' | 'Detenido demasiado tiempo' | 'Sobrecupo' | 'Route Deviation';
+  type: 'GPS sin señal' | 'Detenido demasiado tiempo' | 'Sobrecupo' | 'Desvío de ruta';
   timestamp: string;
   details: string;
 };

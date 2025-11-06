@@ -18,60 +18,59 @@ export default function LoginPage() {
       <div className="relative hidden h-full flex-col bg-muted p-10 text-white dark:border-r lg:flex">
         <div className="absolute inset-0 bg-primary" />
         <Image
-          src="https://picsum.photos/seed/campus/1920/1080"
-          alt="University campus background"
+          src="https://picsum.photos/seed/EMI/1920/1080"
+          alt="Campus universitario EMI"
           fill
           className="object-cover opacity-20"
           data-ai-hint="university campus"
         />
         <div className="relative z-20 flex items-center text-lg font-medium">
           <Logo className="w-8 h-8 mr-2" />
-          T.U.E.M.I. System
+          Sistema T.U.E.M.I.
         </div>
         <div className="relative z-20 mt-auto">
           <blockquote className="space-y-2">
             <p className="text-lg">
-              &ldquo;Optimizing university transportation for a seamless, safe,
-              and efficient journey for every student and staff member.&rdquo;
+              &ldquo;Optimizando el transporte universitario para un viaje fluido, seguro y eficiente para cada estudiante y miembro del personal.&rdquo;
             </p>
-            <footer className="text-sm">EMI Administration</footer>
+            <footer className="text-sm">Administración EMI</footer>
           </blockquote>
         </div>
       </div>
       <div className="flex items-center justify-center py-12">
         <div className="mx-auto grid w-[350px] gap-6">
           <div className="grid gap-2 text-center">
-            <h1 className="text-3xl font-bold font-headline">Login</h1>
+            <h1 className="text-3xl font-bold font-headline">Iniciar Sesión</h1>
             <p className="text-balance text-muted-foreground">
-              Enter your credentials to access your account
+              Ingrese sus credenciales para acceder a su cuenta
             </p>
           </div>
           <Card>
             <CardHeader>
-              <CardTitle className="text-2xl">Administrator</CardTitle>
+              <CardTitle className="text-2xl">Administrador</CardTitle>
               <CardDescription>
-                Use the credentials provided by the technical team.
+                Utilice las credenciales proporcionadas por el equipo técnico.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="email">Username</Label>
+                <Label htmlFor="email">Usuario</Label>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="admin_user"
+                  placeholder="usuario_admin"
                   required
-                  defaultValue="admin@emi.edu"
+                  defaultValue="admin@emi.edu.bo"
                 />
               </div>
               <div className="grid gap-2">
                 <div className="flex items-center">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="password">Contraseña</Label>
                   <Link
                     href="#"
                     className="ml-auto inline-block text-sm underline"
                   >
-                    Forgot your password?
+                    ¿Olvidó su contraseña?
                   </Link>
                 </div>
                 <Input
@@ -82,14 +81,14 @@ export default function LoginPage() {
                 />
               </div>
               <Button asChild type="submit" className="w-full">
-                <Link href="/dashboard">Login</Link>
+                <Link href="/dashboard">Iniciar Sesión</Link>
               </Button>
             </CardContent>
           </Card>
           <div className="mt-4 text-center text-sm">
-            Are you a student or staff member?{' '}
+            ¿Eres estudiante o miembro del personal?{' '}
             <Link href="#" className="underline">
-              Login or Sign up
+              Inicia sesión o Regístrate
             </Link>
           </div>
         </div>

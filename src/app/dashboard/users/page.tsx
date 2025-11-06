@@ -47,7 +47,7 @@ const data: User[] = mockUsers;
 export const columns: ColumnDef<User>[] = [
   {
     accessorKey: 'name',
-    header: 'Name',
+    header: 'Nombre',
     cell: ({ row }) => {
       const user = row.original;
       const avatar = PlaceHolderImages.find((img) => img.id === user.avatar);
@@ -67,7 +67,7 @@ export const columns: ColumnDef<User>[] = [
   },
   {
     accessorKey: 'status',
-    header: 'Status',
+    header: 'Estado',
     cell: ({ row }) => {
       const status = row.getValue('status') as string;
       return (
@@ -79,18 +79,18 @@ export const columns: ColumnDef<User>[] = [
   },
   {
     accessorKey: 'phone',
-    header: 'Phone',
+    header: 'Teléfono',
   },
   {
     id: 'actions',
-    header: 'Toggle Abonado',
+    header: 'Alternar Abonado',
     cell: ({ row }) => {
       const user = row.original;
       const [isAbonado, setIsAbonado] = React.useState(user.status === 'Abonado');
 
       const handleToggle = () => {
         setIsAbonado(!isAbonado);
-        // Here you would typically also update the backend
+        // Aquí normalmente también actualizarías el backend
       };
 
       return (
@@ -99,10 +99,10 @@ export const columns: ColumnDef<User>[] = [
                 id={`abonado-switch-${user.id}`}
                 checked={isAbonado}
                 onCheckedChange={handleToggle}
-                aria-label="Toggle abonado status"
+                aria-label="Alternar estado de abonado"
             />
             <Label htmlFor={`abonado-switch-${user.id}`} className="sr-only">
-                Abonado Status
+                Estado de Abonado
             </Label>
         </div>
       );
@@ -117,7 +117,8 @@ export default function UsersPage() {
 
   const filteredData = React.useMemo(() => {
     if (activeTab === 'all') return data;
-    return data.filter(user => user.status.toLowerCase().replace(' ', '') === activeTab);
+    const statusToFilter = activeTab === 'noabonado' ? 'No Abonado' : 'Abonado';
+    return data.filter(user => user.status === statusToFilter);
   }, [activeTab]);
 
   const table = useReactTable({
@@ -139,21 +140,21 @@ export default function UsersPage() {
     <Tabs defaultValue="all" onValueChange={setActiveTab}>
       <div className="flex items-center">
         <TabsList>
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="abonado">Abonado</TabsTrigger>
-          <TabsTrigger value="noabonado">No Abonado</TabsTrigger>
+          <TabsTrigger value="all">Todos</TabsTrigger>
+          <TabsTrigger value="abonado">Abonados</TabsTrigger>
+          <TabsTrigger value="noabonado">No Abonados</TabsTrigger>
         </TabsList>
         <div className="ml-auto flex items-center gap-2">
           <Button size="sm" variant="outline" className="h-8 gap-1">
             <File className="h-3.5 w-3.5" />
             <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-              Export
+              Exportar
             </span>
           </Button>
           <Button size="sm" className="h-8 gap-1">
             <PlusCircle className="h-3.5 w-3.5" />
             <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-              Add User
+              Añadir Usuario
             </span>
           </Button>
         </div>
@@ -161,15 +162,15 @@ export default function UsersPage() {
       <TabsContent value={activeTab}>
         <Card>
           <CardHeader>
-            <CardTitle>Users</CardTitle>
+            <CardTitle>Usuarios</CardTitle>
             <CardDescription>
-              Manage university students and staff.
+              Gestiona los estudiantes y personal de la universidad.
             </CardDescription>
           </CardHeader>
           <CardContent>
              <div className="mb-4">
               <Input
-                placeholder="Filter by name..."
+                placeholder="Filtrar por nombre..."
                 value={(table.getColumn('name')?.getFilterValue() as string) ?? ''}
                 onChange={(event) =>
                   table.getColumn('name')?.setFilterValue(event.target.value)
@@ -220,7 +221,7 @@ export default function UsersPage() {
                         colSpan={columns.length}
                         className="h-24 text-center"
                       >
-                        No results.
+                        No hay resultados.
                       </TableCell>
                     </TableRow>
                   )}
@@ -234,7 +235,7 @@ export default function UsersPage() {
                 onClick={() => table.previousPage()}
                 disabled={!table.getCanPreviousPage()}
               >
-                Previous
+                Anterior
               </Button>
               <Button
                 variant="outline"
@@ -242,7 +243,7 @@ export default function UsersPage() {
                 onClick={() => table.nextPage()}
                 disabled={!table.getCanNextPage()}
               >
-                Next
+                Siguiente
               </Button>
             </div>
           </CardContent>

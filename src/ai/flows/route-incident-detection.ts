@@ -1,51 +1,51 @@
 'use server';
 
 /**
- * @fileOverview Detects unusual incidents during a route, such as prolonged stops or deviations from the planned path.
+ * @fileOverview Detecta incidentes inusuales durante una ruta, como paradas prolongadas o desviaciones del camino planificado.
  *
- * - detectRouteIncident - A function that handles the route incident detection process.
- * - DetectRouteIncidentInput - The input type for the detectRouteIncident function.
- * - DetectRouteIncidentOutput - The return type for the detectRouteIncident function.
+ * - detectRouteIncident - Una función que maneja el proceso de detección de incidentes en la ruta.
+ * - DetectRouteIncidentInput - El tipo de entrada para la función detectRouteIncident.
+ * - DetectRouteIncidentOutput - El tipo de retorno para la función detectRouteIncident.
  */
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const DetectRouteIncidentInputSchema = z.object({
-  routeId: z.string().describe('The ID of the route being monitored.'),
-  vehicleId: z.string().describe('The ID of the vehicle on the route.'),
+  routeId: z.string().describe('El ID de la ruta que se está monitoreando.'),
+  vehicleId: z.string().describe('El ID del vehículo en la ruta.'),
   currentLocation: z
     .object({
-      latitude: z.number().describe('The current latitude of the vehicle.'),
-      longitude: z.number().describe('The current longitude of the vehicle.'),
-      timestamp: z.string().describe('The timestamp of the location reading (ISO 8601 format).'),
+      latitude: z.number().describe('La latitud actual del vehículo.'),
+      longitude: z.number().describe('La longitud actual del vehículo.'),
+      timestamp: z.string().describe('La marca de tiempo de la lectura de la ubicación (formato ISO 8601).'),
     })
-    .describe('The current location of the vehicle.'),
+    .describe('La ubicación actual del vehículo.'),
   plannedRoute: z.array(z.object({
     latitude: z.number(),
     longitude: z.number(),
-  })).describe('The planned route as an array of latitude/longitude coordinates.'),
+  })).describe('La ruta planificada como un arreglo de coordenadas de latitud/longitud.'),
   lastKnownGoodLocation: z
     .object({
-      latitude: z.number().describe('The last known latitude of the vehicle that was on route.'),
-      longitude: z.number().describe('The last known longitude of the vehicle that was on route.'),
-      timestamp: z.string().describe('The timestamp of the location reading (ISO 8601 format).'),
+      latitude: z.number().describe('La última latitud conocida del vehículo que estaba en ruta.'),
+      longitude: z.number().describe('La última longitud conocida del vehículo que estaba en ruta.'),
+      timestamp: z.string().describe('La marca de tiempo de la lectura de la ubicación (formato ISO 8601).'),
     })
-    .optional().describe('The last known location of the vehicle that was on route.'),
-  averageSpeed: z.number().describe('The average speed of the vehicle on this route in km/h.'),
-  currentSpeed: z.number().describe('The current speed of the vehicle in km/h.'),
-  passengers: z.number().describe('The number of passengers currently on the vehicle.'),
-  capacity: z.number().describe('The maximum capacity of the vehicle.'),
+    .optional().describe('La última ubicación conocida del vehículo que estaba en ruta.'),
+  averageSpeed: z.number().describe('La velocidad promedio del vehículo en esta ruta en km/h.'),
+  currentSpeed: z.number().describe('La velocidad actual del vehículo en km/h.'),
+  passengers: z.number().describe('El número de pasajeros actualmente en el vehículo.'),
+  capacity: z.number().describe('La capacidad máxima del vehículo.'),
 });
 export type DetectRouteIncidentInput = z.infer<typeof DetectRouteIncidentInputSchema>;
 
 const DetectRouteIncidentOutputSchema = z.object({
-  incidentDetected: z.boolean().describe('Whether an incident has been detected.'),
+  incidentDetected: z.boolean().describe('Si se ha detectado un incidente.'),
   incidentType: z
     .string()
     .optional()
-    .describe('The type of incident detected (e.g., prolonged stop, route deviation, overcapacity).'),
-  incidentDetails: z.string().optional().describe('Details about the incident.'),
+    .describe('El tipo de incidente detectado (ej., parada prolongada, desvío de ruta, sobrecupo).'),
+  incidentDetails: z.string().optional().describe('Detalles sobre el incidente.'),
 });
 export type DetectRouteIncidentOutput = z.infer<typeof DetectRouteIncidentOutputSchema>;
 
@@ -57,31 +57,31 @@ const prompt = ai.definePrompt({
   name: 'detectRouteIncidentPrompt',
   input: {schema: DetectRouteIncidentInputSchema},
   output: {schema: DetectRouteIncidentOutputSchema},
-  prompt: `You are an expert in detecting unusual incidents during a university transport route.
+  prompt: `Eres un experto en detectar incidentes inusuales durante una ruta de transporte de la Universidad EMI en La Paz, Bolivia.
 
-  You will receive real-time data about the route, vehicle, and location, and must determine if there is an incident occurring.
+  Recibirás datos en tiempo real sobre la ruta, el vehículo y la ubicación, y deberás determinar si está ocurriendo un incidente.
 
-  Here is the information about the current route:
-  - Route ID: {{{routeId}}}
-  - Vehicle ID: {{{vehicleId}}}
-  - Current Location: Latitude {{{currentLocation.latitude}}}, Longitude {{{currentLocation.longitude}}} at {{{currentLocation.timestamp}}}
-  - Last Known Good Location: Latitude {{{lastKnownGoodLocation.latitude}}}, Longitude {{{lastKnownGoodGoodLocation.longitude}}} at {{{lastKnownGoodGoodLocation.timestamp}}}
-  - Planned Route: (list of coordinates - not available in this version, but deviations are still possible to compute)
-  - Average Speed: {{{averageSpeed}}} km/h
-  - Current Speed: {{{currentSpeed}}} km/h
-  - Passengers: {{{passengers}}}
-  - Capacity: {{{capacity}}}
+  Aquí está la información sobre la ruta actual:
+  - ID de Ruta: {{{routeId}}}
+  - ID de Vehículo: {{{vehicleId}}}
+  - Ubicación Actual: Latitud {{{currentLocation.latitude}}}, Longitud {{{currentLocation.longitude}}} a las {{{currentLocation.timestamp}}}
+  - Última Ubicación Buena Conocida: Latitud {{{lastKnownGoodLocation.latitude}}}, Longitud {{{lastKnownGoodLocation.longitude}}} a las {{{lastKnownGoodLocation.timestamp}}}
+  - Ruta Planificada: (lista de coordenadas - no disponible en esta versión, pero aún es posible calcular desviaciones)
+  - Velocidad Promedio: {{{averageSpeed}}} km/h
+  - Velocidad Actual: {{{currentSpeed}}} km/h
+  - Pasajeros: {{{passengers}}}
+  - Capacidad: {{{capacity}}}
 
-  Consider the following factors to detect incidents:
-  - Prolonged Stop: If the current speed is 0 and the vehicle has been stationary for more than 10 minutes at a location not on the route, it's a prolonged stop.
-  - Route Deviation: If the vehicle is more than 500 meters away from the planned route, it's a route deviation. (Note: actual route is not available so make an estimation based on previous good known location).
-  - Overcapacity: If the number of passengers exceeds the vehicle capacity, it's an overcapacity incident.
+  Considera los siguientes factores para detectar incidentes:
+  - Parada Prolongada: Si la velocidad actual es 0 y el vehículo ha estado estacionario por más de 10 minutos en una ubicación que no está en la ruta, es una parada prolongada.
+  - Desvío de Ruta: Si el vehículo está a más de 500 metros de la ruta planificada, es un desvío de ruta. (Nota: la ruta real no está disponible, así que haz una estimación basada en la última ubicación buena conocida).
+  - Sobrecupo: Si el número de pasajeros excede la capacidad del vehículo, es un incidente de sobrecupo.
 
-  Output your decision in JSON format. If an incident is detected, set incidentDetected to true and provide the incidentType and incidentDetails. If no incident is detected, set incidentDetected to false.
+  Emite tu decisión en formato JSON. Si se detecta un incidente, establece incidentDetected en true y proporciona el incidentType y los incidentDetails. Si no se detecta ningún incidente, establece incidentDetected en false.
 
-  The incidentDetails should describe the incident and the potential impact. Make sure the location and current time are mentioned in the details to facilitate manual verification.
+  Los incidentDetails deben describir el incidente y el impacto potencial. Asegúrate de que la ubicación y la hora actual se mencionen en los detalles para facilitar la verificación manual.
 
-  If the vehicle has not yet visited a known "good" location, then do not try to determine if it has deviated from its route since there is no baseline to compare against.
+  Si el vehículo aún no ha visitado una ubicación "buena" conocida, entonces no intentes determinar si se ha desviado de su ruta, ya que no hay una línea de base con la cual comparar.
   `,
 });
 
@@ -101,37 +101,37 @@ const detectRouteIncidentFlow = ai.defineFlow(
       lastKnownGoodLocation
     } = input;
 
-    // Prolonged Stop (speed 0 for > 10 minutes)
+    // Parada Prolongada (velocidad 0 por > 10 minutos)
     const isStopped = currentSpeed === 0;
 
-    // Overcapacity
+    // Sobrecupo
     const isOvercapacity = passengers > capacity;
 
-    // Route Deviation (distance from planned route > 500 meters). Unavailable in this version due to missing planned route information, but we can compare it against the last known good location
+    // Desvío de Ruta (distancia de la ruta planificada > 500 metros). No disponible en esta versión debido a la falta de información de la ruta planificada, pero podemos compararla con la última ubicación buena conocida.
 
-    // Check if the conditions for an incident are met
+    // Comprobar si se cumplen las condiciones para un incidente
     let incidentDetected = false;
     let incidentType: string | undefined = undefined;
     let incidentDetails: string | undefined = undefined;
 
     if (isStopped) {
       incidentDetected = true;
-      incidentType = 'prolonged_stop';
-      incidentDetails = `The vehicle has been stopped at the location (${currentLocation.latitude}, ${currentLocation.longitude}) for more than 10 minutes.`
+      incidentType = 'parada_prolongada';
+      incidentDetails = `El vehículo ha estado detenido en la ubicación (${currentLocation.latitude}, ${currentLocation.longitude}) por más de 10 minutos.`
     }
 
     if (isOvercapacity) {
       incidentDetected = true;
-      incidentType = 'overcapacity';
-      incidentDetails = `The vehicle is over capacity. There are ${passengers} passengers, but the vehicle only has a capacity of ${capacity}.`;
+      incidentType = 'sobrecupo';
+      incidentDetails = `El vehículo tiene sobrecupo. Hay ${passengers} pasajeros, pero el vehículo solo tiene una capacidad de ${capacity}.`;
     }
 
     if (lastKnownGoodLocation == null) {
-        // Don't try to compute route deviation, there is no baseline to compare against.
+        // No intentar calcular el desvío de ruta, no hay una línea de base con la cual comparar.
     } else {
-      // Implemented a dumbed-down version of the Haversine formula, good enough for 500m precision
-      const R = 6371e3; // meters
-      const φ1 = lastKnownGoodLocation.latitude * Math.PI/180; // φ, λ in radians
+      // Implementé una versión simplificada de la fórmula de Haversine, suficientemente buena para una precisión de 500m
+      const R = 6371e3; // metros
+      const φ1 = lastKnownGoodLocation.latitude * Math.PI/180; // φ, λ en radianes
       const φ2 = currentLocation.latitude * Math.PI/180;
       const Δφ = (currentLocation.latitude-lastKnownGoodLocation.latitude) * Math.PI/180;
       const Δλ = (currentLocation.longitude-lastKnownGoodLocation.longitude) * Math.PI/180;
@@ -145,8 +145,8 @@ const detectRouteIncidentFlow = ai.defineFlow(
 
       if (distance > 500) {
         incidentDetected = true;
-        incidentType = 'route_deviation';
-        incidentDetails = `The vehicle has deviated from the route. It is ${distance} meters away from last known location. Current coordinates: (${currentLocation.latitude}, ${currentLocation.longitude}). Last known location coordinates: (${lastKnownGoodLocation.latitude}, ${lastKnownGoodLocation.longitude})`;
+        incidentType = 'desvio_de_ruta';
+        incidentDetails = `El vehículo se ha desviado de la ruta. Está a ${Math.round(distance)} metros de la última ubicación conocida. Coordenadas actuales: (${currentLocation.latitude}, ${currentLocation.longitude}). Última ubicación conocida: (${lastKnownGoodLocation.latitude}, ${lastKnownGoodLocation.longitude})`;
       }
     }
 
@@ -154,7 +154,7 @@ const detectRouteIncidentFlow = ai.defineFlow(
       return {incidentDetected: false};
     }
 
-    const {output} = await prompt(input);
+    // No llamar al prompt si ya hemos determinado la lógica del incidente
     return {
       incidentDetected,
       incidentType,

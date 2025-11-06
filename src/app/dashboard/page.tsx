@@ -41,52 +41,52 @@ export default function Dashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                Active Routes
+                Rutas Activas
               </CardTitle>
               <Bus className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{activeRoutes}</div>
               <p className="text-xs text-muted-foreground">
-                currently operational
+                actualmente en operación
               </p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                Subscribed Users
+                Usuarios Abonados
               </CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">+{totalAbonados}</div>
               <p className="text-xs text-muted-foreground">
-                +12% from last month
+                +12% desde el último mes
               </p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Online Drivers</CardTitle>
+              <CardTitle className="text-sm font-medium">Conductores en Línea</CardTitle>
               <Car className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{onlineDrivers}</div>
               <p className="text-xs text-muted-foreground">
-                currently on a trip
+                actualmente en viaje
               </p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Alerts</CardTitle>
+              <CardTitle className="text-sm font-medium">Alertas Activas</CardTitle>
               <Activity className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">+{mockAlerts.length}</div>
               <p className="text-xs text-muted-foreground">
-                in the last 24 hours
+                en las últimas 24 horas
               </p>
             </CardContent>
           </Card>
@@ -95,14 +95,14 @@ export default function Dashboard() {
           <Card className="xl:col-span-2">
             <CardHeader className="flex flex-row items-center">
               <div className="grid gap-2">
-                <CardTitle>Recent Trips</CardTitle>
+                <CardTitle>Viajes Recientes</CardTitle>
                 <CardDescription>
-                  Overview of the latest transportation activities.
+                  Resumen de las últimas actividades de transporte.
                 </CardDescription>
               </div>
               <Button asChild size="sm" className="ml-auto gap-1">
                 <Link href="/dashboard/monitoring">
-                  View All
+                  Ver Todos
                   <ArrowUpRight className="h-4 w-4" />
                 </Link>
               </Button>
@@ -111,14 +111,14 @@ export default function Dashboard() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Driver</TableHead>
+                    <TableHead>Conductor</TableHead>
                     <TableHead className="hidden xl:table-cell">
-                      Route
+                      Ruta
                     </TableHead>
                     <TableHead className="hidden xl:table-cell">
-                      Status
+                      Estado
                     </TableHead>
-                    <TableHead className="text-right">Passengers</TableHead>
+                    <TableHead className="text-right">Pasajeros</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -155,9 +155,9 @@ export default function Dashboard() {
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Recent Alerts</CardTitle>
+              <CardTitle>Alertas Recientes</CardTitle>
               <CardDescription>
-                Live incidents and alerts from the transport fleet.
+                Incidentes y alertas en vivo de la flota de transporte.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-8">

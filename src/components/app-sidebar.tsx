@@ -24,37 +24,37 @@ import { Logo } from '@/components/logo';
 const menuItems = [
   {
     href: '/dashboard',
-    label: 'Dashboard',
+    label: 'Principal',
     icon: LayoutDashboard,
   },
   {
     href: '/dashboard/users',
-    label: 'User Management',
+    label: 'Gestión de Usuarios',
     icon: Users,
   },
   {
     href: '/dashboard/drivers',
-    label: 'Driver Registry',
+    label: 'Registro de Conductores',
     icon: Car,
   },
   {
     href: '/dashboard/vehicles',
-    label: 'Vehicle Information',
+    label: 'Información de Vehículos',
     icon: Bus,
   },
   {
     href: '/dashboard/routes',
-    label: 'Route Management',
+    label: 'Gestión de Rutas',
     icon: Map,
   },
   {
     href: '/dashboard/monitoring',
-    label: 'Monitoring',
+    label: 'Monitoreo',
     icon: MapPin,
   },
   {
     href: '/dashboard/reports',
-    label: 'Reports',
+    label: 'Reportes',
     icon: BarChart,
   },
 ];
@@ -62,9 +62,9 @@ const menuItems = [
 const aiMenuItems = [
   {
     href: '/dashboard/student-view',
-    label: 'Disruption Helper',
+    label: 'Asistente IA',
     icon: Bot,
-    tooltip: 'AI Disruption Helper',
+    tooltip: 'Asistente de Interrupciones IA',
   },
 ]
 
@@ -85,7 +85,7 @@ export function AppSidebar() {
       </div>
       <div className="flex-1 overflow-y-auto">
         <SidebarGroup>
-          <SidebarGroupLabel>Main Menu</SidebarGroupLabel>
+          <SidebarGroupLabel>Menú Principal</SidebarGroupLabel>
           <SidebarMenu>
             {menuItems.map((item) => (
               <SidebarMenuItem key={item.href}>
@@ -104,7 +104,7 @@ export function AppSidebar() {
           </SidebarMenu>
         </SidebarGroup>
          <SidebarGroup>
-          <SidebarGroupLabel>Student Tools</SidebarGroupLabel>
+          <SidebarGroupLabel>Herramientas Estudiante</SidebarGroupLabel>
           <SidebarMenu>
             {aiMenuItems.map((item) => (
               <SidebarMenuItem key={item.href}>

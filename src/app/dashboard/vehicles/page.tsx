@@ -57,10 +57,10 @@ import { mockVehicles } from '@/lib/data';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 const formSchema = z.object({
-  plate: z.string().min(6, "Plate must be at least 6 characters."),
-  brand: z.string().min(2, "Brand is required."),
-  model: z.string().min(1, "Model is required."),
-  capacity: z.coerce.number().min(1, "Capacity must be at least 1."),
+  plate: z.string().min(6, "La placa debe tener al menos 6 caracteres."),
+  brand: z.string().min(2, "La marca es requerida."),
+  model: z.string().min(1, "El modelo es requerido."),
+  capacity: z.coerce.number().min(1, "La capacidad debe ser al menos 1."),
   status: z.enum(["Activo", "En mantenimiento"]),
 });
 
@@ -78,8 +78,8 @@ function AddVehicleForm({ setOpen }: { setOpen: (open: boolean) => void }) {
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     console.log(values);
-    // Here you would handle form submission, e.g., send to an API
-    alert('Vehicle added successfully! (mock)');
+    // Aquí manejarías el envío del formulario, por ejemplo, a una API
+    alert('¡Vehículo añadido con éxito! (simulación)');
     setOpen(false);
   }
 
@@ -87,9 +87,9 @@ function AddVehicleForm({ setOpen }: { setOpen: (open: boolean) => void }) {
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <DialogHeader>
-          <DialogTitle>Add New Vehicle</DialogTitle>
+          <DialogTitle>Añadir Nuevo Vehículo</DialogTitle>
           <DialogDescription>
-            Register a new minibus for the university transport fleet.
+            Registra un nuevo minibús para la flota de transporte de la universidad.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -98,7 +98,7 @@ function AddVehicleForm({ setOpen }: { setOpen: (open: boolean) => void }) {
             name="plate"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Plate</FormLabel>
+                <FormLabel>Placa</FormLabel>
                 <FormControl>
                   <Input placeholder="1234-ABC" {...field} />
                 </FormControl>
@@ -112,7 +112,7 @@ function AddVehicleForm({ setOpen }: { setOpen: (open: boolean) => void }) {
               name="brand"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Brand</FormLabel>
+                  <FormLabel>Marca</FormLabel>
                   <FormControl>
                     <Input placeholder="Toyota" {...field} />
                   </FormControl>
@@ -125,7 +125,7 @@ function AddVehicleForm({ setOpen }: { setOpen: (open: boolean) => void }) {
               name="model"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Model</FormLabel>
+                  <FormLabel>Modelo</FormLabel>
                   <FormControl>
                     <Input placeholder="Hiace" {...field} />
                   </FormControl>
@@ -140,7 +140,7 @@ function AddVehicleForm({ setOpen }: { setOpen: (open: boolean) => void }) {
               name="capacity"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Capacity</FormLabel>
+                  <FormLabel>Capacidad</FormLabel>
                   <FormControl>
                     <Input type="number" {...field} />
                   </FormControl>
@@ -153,11 +153,11 @@ function AddVehicleForm({ setOpen }: { setOpen: (open: boolean) => void }) {
               name="status"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Status</FormLabel>
+                  <FormLabel>Estado</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a status" />
+                        <SelectValue placeholder="Selecciona un estado" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -172,8 +172,8 @@ function AddVehicleForm({ setOpen }: { setOpen: (open: boolean) => void }) {
           </div>
         </div>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button type="submit">Save Vehicle</Button>
+          <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+          <Button type="submit">Guardar Vehículo</Button>
         </DialogFooter>
       </form>
     </Form>
@@ -187,9 +187,9 @@ export default function VehiclesPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Vehicles</CardTitle>
+        <CardTitle>Vehículos</CardTitle>
         <CardDescription>
-          Manage the university transport fleet.
+          Gestiona la flota de transporte de la universidad.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -197,14 +197,14 @@ export default function VehiclesPage() {
           <TableHeader>
             <TableRow>
               <TableHead className="hidden w-[100px] sm:table-cell">
-                <span className="sr-only">Image</span>
+                <span className="sr-only">Imagen</span>
               </TableHead>
-              <TableHead>Plate</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="hidden md:table-cell">Capacity</TableHead>
-              <TableHead className="hidden md:table-cell">Brand/Model</TableHead>
+              <TableHead>Placa</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead className="hidden md:table-cell">Capacidad</TableHead>
+              <TableHead className="hidden md:table-cell">Marca/Modelo</TableHead>
               <TableHead>
-                <span className="sr-only">Actions</span>
+                <span className="sr-only">Acciones</span>
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -232,7 +232,7 @@ export default function VehiclesPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
-                    {vehicle.capacity} seats
+                    {vehicle.capacity} asientos
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
                     {vehicle.brand} {vehicle.model}
@@ -246,13 +246,13 @@ export default function VehiclesPage() {
                           variant="ghost"
                         >
                           <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Toggle menu</span>
+                          <span className="sr-only">Alternar menú</span>
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem>Edit</DropdownMenuItem>
-                        <DropdownMenuItem>Delete</DropdownMenuItem>
+                        <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                        <DropdownMenuItem>Editar</DropdownMenuItem>
+                        <DropdownMenuItem>Eliminar</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -264,7 +264,7 @@ export default function VehiclesPage() {
       </CardContent>
       <CardFooter>
         <div className="text-xs text-muted-foreground">
-          Showing <strong>1-{vehicles.length}</strong> of <strong>{vehicles.length}</strong> vehicles
+          Mostrando <strong>1-{vehicles.length}</strong> de <strong>{vehicles.length}</strong> vehículos
         </div>
         <div className="ml-auto">
           <Dialog open={open} onOpenChange={setOpen}>
@@ -272,7 +272,7 @@ export default function VehiclesPage() {
               <Button size="sm" className="h-8 gap-1">
                 <PlusCircle className="h-3.5 w-3.5" />
                 <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                  Add Vehicle
+                  Añadir Vehículo
                 </span>
               </Button>
             </DialogTrigger>

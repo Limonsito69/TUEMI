@@ -17,9 +17,9 @@ import type { SuggestAlternativeTransportOutput } from '@/ai/flows/transportatio
 import { Skeleton } from '@/components/ui/skeleton';
 
 const formSchema = z.object({
-  disruptionDescription: z.string().min(10, 'Please describe the disruption in more detail.'),
-  studentLocation: z.string().min(3, 'Please enter your current location.'),
-  destination: z.string().min(3, 'Please enter your destination.'),
+  disruptionDescription: z.string().min(10, 'Por favor describe la interrupción con más detalle.'),
+  studentLocation: z.string().min(3, 'Por favor ingresa tu ubicación actual.'),
+  destination: z.string().min(3, 'Por favor ingresa tu destino.'),
 });
 
 export default function StudentViewPage() {
@@ -29,9 +29,9 @@ export default function StudentViewPage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      disruptionDescription: 'My bus (Route Irpavi - EMI) has broken down and is stopped.',
+      disruptionDescription: 'Mi bus (Ruta Irpavi - EMI) se ha averiado y está detenido.',
       studentLocation: 'Calle 21 de Calacoto, La Paz',
-      destination: 'EMI University, Irpavi Campus',
+      destination: 'Universidad EMI, Campus Irpavi',
     },
   });
 
@@ -49,37 +49,37 @@ export default function StudentViewPage() {
         <Card className="md:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Bot /> AI Transport Disruption Helper
+              <Bot /> Asistente de IA para Interrupciones de Transporte
             </CardTitle>
             <CardDescription>
-              Facing a transport problem? Describe the situation, and our AI will suggest alternative ways to get to your destination.
+              ¿Tienes un problema con el transporte? Describe la situación y nuestra IA te sugerirá formas alternativas para llegar a tu destino.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="disruptionDescription">Disruption Description</Label>
+                <Label htmlFor="disruptionDescription">Descripción de la Interrupción</Label>
                 <Textarea
                   id="disruptionDescription"
-                  placeholder="e.g., 'My bus broke down', 'There is a protest blocking the road'"
+                  placeholder="Ej: 'Mi bus se averió', 'Hay una protesta bloqueando la calle'"
                   {...form.register('disruptionDescription')}
                 />
                 {form.formState.errors.disruptionDescription && <p className="text-sm text-destructive">{form.formState.errors.disruptionDescription.message}</p>}
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="studentLocation">Your Current Location</Label>
-                  <Input id="studentLocation" placeholder="e.g., 'Plaza Abaroa, Sopocachi'" {...form.register('studentLocation')} />
+                  <Label htmlFor="studentLocation">Tu Ubicación Actual</Label>
+                  <Input id="studentLocation" placeholder="Ej: 'Plaza Abaroa, Sopocachi'" {...form.register('studentLocation')} />
                   {form.formState.errors.studentLocation && <p className="text-sm text-destructive">{form.formState.errors.studentLocation.message}</p>}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="destination">Your Destination</Label>
-                  <Input id="destination" placeholder="e.g., 'EMI University, Irpavi'" {...form.register('destination')} />
+                  <Label htmlFor="destination">Tu Destino</Label>
+                  <Input id="destination" placeholder="Ej: 'Universidad EMI, Irpavi'" {...form.register('destination')} />
                   {form.formState.errors.destination && <p className="text-sm text-destructive">{form.formState.errors.destination.message}</p>}
                 </div>
               </div>
               <Button type="submit" disabled={isLoading}>
-                {isLoading ? 'Generating Suggestions...' : 'Get Suggestions'}
+                {isLoading ? 'Generando Sugerencias...' : 'Obtener Sugerencias'}
                 <Send className="ml-2 h-4 w-4" />
               </Button>
             </form>
@@ -102,7 +102,7 @@ export default function StudentViewPage() {
           {result && (
             <Card>
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><Sparkles className="text-primary"/> AI Generated Suggestions</CardTitle>
+                    <CardTitle className="flex items-center gap-2"><Sparkles className="text-primary"/> Sugerencias Generadas por IA</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <div className="prose prose-sm max-w-none text-foreground dark:prose-invert whitespace-pre-wrap">

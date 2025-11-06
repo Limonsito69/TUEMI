@@ -4,13 +4,13 @@ export default function DriversPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Driver Registry</CardTitle>
+        <CardTitle>Registro de Conductores</CardTitle>
         <CardDescription>
-          This module is used to register, edit, and manage the information of the drivers who operate the university transport vehicles.
+          Este módulo se utiliza para registrar, editar y gestionar la información de los conductores que operan los vehículos de transporte de la universidad.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <p>Driver management functionality will be implemented here.</p>
+        <p>La funcionalidad de gestión de conductores se implementará aquí.</p>
       </CardContent>
     </Card>
   );

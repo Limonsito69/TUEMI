@@ -4,13 +4,13 @@ export default function ReportsPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Reports and Analytics</CardTitle>
+        <CardTitle>Reportes y Analíticas</CardTitle>
         <CardDescription>
-          This module is for viewing statistics and generating reports on service usage.
+          Este módulo es para ver estadísticas y generar reportes sobre el uso del servicio.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <p>Reports and analytics functionality will be implemented here.</p>
+        <p>La funcionalidad de reportes y analíticas se implementará aquí.</p>
       </CardContent>
     </Card>
   );

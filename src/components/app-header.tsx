@@ -30,7 +30,17 @@ function getPathSegments(pathname: string) {
 }
 
 function formatSegment(segment: string) {
-  return segment
+  const segmentMap: { [key: string]: string } = {
+    dashboard: 'Principal',
+    users: 'Usuarios',
+    drivers: 'Conductores',
+    vehicles: 'Vehículos',
+    routes: 'Rutas',
+    monitoring: 'Monitoreo',
+    reports: 'Reportes',
+    'student-view': 'Vista Estudiante',
+  };
+  return segmentMap[segment] || segment
     .split('-')
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
@@ -67,7 +77,7 @@ export function AppHeader() {
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
           type="search"
-          placeholder="Search..."
+          placeholder="Buscar..."
           className="w-full rounded-lg bg-secondary pl-8 md:w-[200px] lg:w-[336px]"
         />
       </div>
@@ -75,17 +85,17 @@ export function AppHeader() {
         <DropdownMenuTrigger asChild>
           <Button variant="secondary" size="icon" className="rounded-full">
             <CircleUser className="h-5 w-5" />
-            <span className="sr-only">Toggle user menu</span>
+            <span className="sr-only">Alternar menú de usuario</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuLabel>Admin Account</DropdownMenuLabel>
+          <DropdownMenuLabel>Cuenta de Administrador</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem>Settings</DropdownMenuItem>
-          <DropdownMenuItem>Support</DropdownMenuItem>
+          <DropdownMenuItem>Configuración</DropdownMenuItem>
+          <DropdownMenuItem>Soporte</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
-            <Link href="/">Logout</Link>
+            <Link href="/">Cerrar Sesión</Link>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

@@ -4,13 +4,13 @@ export default function RoutesPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Route Management</CardTitle>
+        <CardTitle>Gestión de Rutas</CardTitle>
         <CardDescription>
-          This module is for creating, editing, publishing, and managing the university transport routes.
+          Este módulo es para crear, editar, publicar y gestionar las rutas de transporte de la universidad.
         </CardDescription>      
       </CardHeader>
       <CardContent>
-        <p>Route management functionality will be implemented here.</p>
+        <p>La funcionalidad de gestión de rutas se implementará aquí.</p>
       </CardContent>
     </Card>
   );

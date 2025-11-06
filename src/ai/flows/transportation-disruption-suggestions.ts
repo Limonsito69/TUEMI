@@ -1,26 +1,26 @@
 'use server';
 
 /**
- * @fileOverview This file defines a Genkit flow to suggest alternative transportation arrangements
- * when a transportation disruption is detected in the T.U.E.M.I. system.
+ * @fileOverview Este archivo define un flujo de Genkit para sugerir arreglos de transporte alternativos
+ * cuando se detecta una interrupción del transporte en el sistema T.U.E.M.I.
  *
- * @exports suggestAlternativeTransport - An async function that takes a description of a transportation disruption and returns suggestions for alternative transportation.
- * @exports SuggestAlternativeTransportInput - The input type for the suggestAlternativeTransport function.
- * @exports SuggestAlternativeTransportOutput - The output type for the suggestAlternativeTransport function.
+ * @exports suggestAlternativeTransport - Una función asíncrona que toma una descripción de una interrupción del transporte y devuelve sugerencias para transporte alternativo.
+ * @exports SuggestAlternativeTransportInput - El tipo de entrada para la función suggestAlternativeTransport.
+ * @exports SuggestAlternativeTransportOutput - El tipo de salida para la función suggestAlternativeTransport.
  */
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const SuggestAlternativeTransportInputSchema = z.object({
-  disruptionDescription: z.string().describe('A description of the transportation disruption, including location, time, and nature of the disruption.'),
-  studentLocation: z.string().describe('The current location of the student.'),
-  destination: z.string().describe('The student’s destination (e.g., university, home).'),
+  disruptionDescription: z.string().describe('Una descripción de la interrupción del transporte, incluyendo ubicación, hora y naturaleza de la interrupción.'),
+  studentLocation: z.string().describe('La ubicación actual del estudiante.'),
+  destination: z.string().describe('El destino del estudiante (ej., universidad, casa).'),
 });
 export type SuggestAlternativeTransportInput = z.infer<typeof SuggestAlternativeTransportInputSchema>;
 
 const SuggestAlternativeTransportOutputSchema = z.object({
-  alternativeSuggestions: z.string().describe('A list of suggested alternative transportation arrangements, considering the disruption, student location, and destination.'),
+  alternativeSuggestions: z.string().describe('Una lista de arreglos de transporte alternativos sugeridos, considerando la interrupción, la ubicación del estudiante y el destino.'),
 });
 export type SuggestAlternativeTransportOutput = z.infer<typeof SuggestAlternativeTransportOutputSchema>;
 
@@ -32,22 +32,22 @@ const prompt = ai.definePrompt({
   name: 'suggestAlternativeTransportPrompt',
   input: {schema: SuggestAlternativeTransportInputSchema},
   output: {schema: SuggestAlternativeTransportOutputSchema},
-  prompt: `You are a helpful assistant that suggests alternative transportation arrangements for students facing transportation disruptions.
+  prompt: `Eres un asistente útil que sugiere arreglos de transporte alternativos para estudiantes de la Universidad EMI en La Paz, Bolivia, que enfrentan interrupciones en el transporte.
 
-  Given the following information about the disruption, the student's location, and their destination, provide a list of alternative transportation options.
+  Dada la siguiente información sobre la interrupción, la ubicación del estudiante y su destino, proporciona una lista de opciones de transporte alternativas.
 
-  Disruption Description: {{{disruptionDescription}}}
-  Student Location: {{{studentLocation}}}
-  Destination: {{{destination}}}
+  Descripción de la Interrupción: {{{disruptionDescription}}}
+  Ubicación del Estudiante: {{{studentLocation}}}
+  Destino: {{{destination}}}
 
-  Consider factors such as:
-  - Public transportation options (e.g., buses, trains, taxis)
-  - Ride-sharing services
-  - Walking or biking (if feasible)
-  - Estimated travel time and cost
-  - Safety and reliability
+  Considera factores como:
+  - Opciones de transporte público en La Paz (ej., minibuses, PumaKatari, WaynaBus, Teleférico, taxis, trufis)
+  - Servicios de transporte por aplicación (ej. Uber, InDriver, Yango)
+  - Caminar o ir en bicicleta (si es factible)
+  - Tiempo de viaje y costo estimados
+  - Seguridad y fiabilidad
 
-  Provide a clear and concise list of suggestions to help the student reach their destination on time.
+  Proporciona una lista clara y concisa de sugerencias para ayudar al estudiante a llegar a su destino a tiempo. Sé específico sobre las líneas de minibús o teleférico si es posible.
 `,
 });
 
