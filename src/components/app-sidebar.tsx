@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   Users,
-  SteeringWheel,
+  Car,
   Bus,
   Map,
   MapPin,
@@ -35,7 +35,7 @@ const menuItems = [
   {
     href: '/dashboard/drivers',
     label: 'Driver Registry',
-    icon: SteeringWheel,
+    icon: Car,
   },
   {
     href: '/dashboard/vehicles',

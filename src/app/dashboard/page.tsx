@@ -4,7 +4,7 @@ import {
   Bus,
   AlertTriangle,
   Users,
-  SteeringWheel,
+  Car,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -26,7 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { mockAlerts, mockTrips, mockDrivers, mockUsers, mockRoutes, getVehicleById } from '@/lib/data';
+import { mockAlerts, mockTrips, mockDrivers, mockUsers, mockRoutes, getVehicleById, mockVehicles } from '@/lib/data';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 const onlineDrivers = mockTrips.filter(t => t.status === 'En curso').length;
@@ -69,7 +69,7 @@ export default function Dashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Online Drivers</CardTitle>
-              <SteeringWheel className="h-4 w-4 text-muted-foreground" />
+              <Car className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{onlineDrivers}</div>

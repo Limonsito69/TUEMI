@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { CircleUser, Search } from 'lucide-react';
+import React from 'react';
 
 import {
   Breadcrumb,
@@ -57,7 +58,7 @@ export function AppHeader() {
                   <BreadcrumbPage>{formatSegment(segment)}</BreadcrumbPage>
                 )}
               </BreadcrumbItem>
-              {index < segments.length-1 && <BreadcrumbSeparator />}
+              {index < segments.length - 1 && <BreadcrumbSeparator />}
             </React.Fragment>
           ))}
         </BreadcrumbList>
@@ -90,10 +91,4 @@ export function AppHeader() {
       </DropdownMenu>
     </header>
   );
-}
-
-// Minimalistic React to avoid client-side dependency on `usePathname`
-const React = {
-    createElement: (tag: any, props: any, ...children: any) => ({ tag, props, children }),
-    Fragment: 'fragment',
 }

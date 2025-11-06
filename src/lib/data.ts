@@ -31,7 +31,7 @@ export const mockRoutes: Route[] = [
 export const mockAlerts: Alert[] = [
   { id: '1', vehiclePlate: '5678-EMI', type: 'Detenido demasiado tiempo', timestamp: new Date(Date.now() - 12 * 60000).toISOString(), details: 'Posible incidente: bus detenido 12 minutos fuera de parada.' },
   { id: '2', vehiclePlate: '1234-TUB', type: 'Sobrecupo', timestamp: new Date(Date.now() - 30 * 60000).toISOString(), details: 'Alerta: 19 pasajeros con solo 18 asientos disponibles.' },
-  { id a: '3', vehiclePlate: '9876-FGH', type: 'GPS sin señal', timestamp: new Date(Date.now() - 5 * 60000).toISOString(), details: 'No hay actualización de GPS por más de 5 minutos.' },
+  { id: '3', vehiclePlate: '9876-FGH', type: 'GPS sin señal', timestamp: new Date(Date.now() - 5 * 60000).toISOString(), details: 'No hay actualización de GPS por más de 5 minutos.' },
 ];
 
 export const mockTrips: Trip[] = [
