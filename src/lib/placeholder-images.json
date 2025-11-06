@@ -1,3 +1,82 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "user1",
+      "description": "Avatar for Ana Pérez",
+      "imageUrl": "https://images.unsplash.com/photo-1540569014015-19a7be504e3a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjIzNzk2MTR8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person portrait"
+    },
+    {
+      "id": "user2",
+      "description": "Avatar for Luis Gutiérrez",
+      "imageUrl": "https://images.unsplash.com/photo-1535643302794-19c3804b874b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8cGVyc29uJTIwcG9ydHJhaXR8ZW58MHx8fHwxNzYyMzc5NjE1fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person portrait"
+    },
+    {
+      "id": "user3",
+      "description": "Avatar for María López",
+      "imageUrl": "https://images.unsplash.com/photo-1590086782792-42dd2350140d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjIzNzk2MTR8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person portrait"
+    },
+    {
+      "id": "user4",
+      "description": "Avatar for Carlos Rojas",
+      "imageUrl": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjIzNzk2MTR8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person portrait"
+    },
+    {
+      "id": "user5",
+      "description": "Avatar for Sofía Fernandez",
+      "imageUrl": "https://images.unsplash.com/photo-1590086782792-42dd2350140d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjIzNzk2MTR8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person portrait"
+    },
+    {
+      "id": "driver1",
+      "description": "Avatar for Juan López",
+      "imageUrl": "https://images.unsplash.com/photo-1548538159-6d651be9d005?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxkcml2ZXIlMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjIzNTY2NTZ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "driver portrait"
+    },
+    {
+      "id": "driver2",
+      "description": "Avatar for Carlos Fernández",
+      "imageUrl": "https://images.unsplash.com/photo-1562310239-a8d3b39fa920?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxkcml2ZXIlMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjIzNTY2NTZ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "driver portrait"
+    },
+    {
+      "id": "driver3",
+      "description": "Avatar for Pedro Ramirez",
+      "imageUrl": "https://images.unsplash.com/photo-1548538159-6d651be9d005?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxkcml2ZXIlMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjIzNTY2NTZ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "driver portrait"
+    },
+    {
+      "id": "vehicle1",
+      "description": "Image of Toyota Hiace",
+      "imageUrl": "https://images.unsplash.com/photo-1704966698633-338a52929615?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8d2hpdGUlMjB2YW58ZW58MHx8fHwxNzYyMzg1MzUxfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "white van"
+    },
+    {
+      "id": "vehicle2",
+      "description": "Image of Nissan Urvan",
+      "imageUrl": "https://images.unsplash.com/photo-1565049186696-93c9418576a6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHx3aGl0ZSUyMHZhbnxlbnwwfHx8fDE3NjIzODUzNTF8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "white van"
+    },
+    {
+      "id": "vehicle3",
+      "description": "Image of Mercedes-Benz Sprinter",
+      "imageUrl": "https://images.unsplash.com/photo-1596979240348-970331045946?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHx3aGl0ZSUyMG1pbmlidXN8ZW58MHx8fHwxNzYyMzM0NTI3fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "white minibus"
+    },
+    {
+      "id": "vehicle4",
+      "description": "Image of Ford Transit",
+      "imageUrl": "https://images.unsplash.com/photo-1614623626926-e3dae0476930?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8d2hpdGUlMjBtaW5pYnVzfGVufDB8fHx8MTc2MjMzNDUyN3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "white minibus"
+    },
+    {
+      "id": "map-background",
+      "description": "Background map for monitoring page",
+      "imageUrl": "https://images.unsplash.com/photo-1476385822777-70eabacbd41f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxjaXR5JTIwbWFwfGVufDB8fHx8MTc2MjM3MDg3OHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "city map"
+    }
+  ]
 }
