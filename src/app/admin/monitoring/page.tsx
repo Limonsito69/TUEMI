@@ -39,6 +39,7 @@ function VehiclePopover({ tripId }: { tripId: string }) {
   const route = getRouteById(trip.routeId);
   const vehicle = getVehicleById(trip.vehicleId);
   const driverAvatar = PlaceHolderImages.find(i => i.id === driver?.avatar);
+  const tripDuration = trip.startTime ? Math.floor((Date.now() - new Date(trip.startTime).getTime()) / 60000) : 0;
 
   return (
     <Popover>
@@ -73,7 +74,7 @@ function VehiclePopover({ tripId }: { tripId: string }) {
             </div>
              <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-muted-foreground"/>
-                <span>En viaje por {Math.floor((Date.now() - new Date(trip.startTime).getTime()) / 60000)} min</span>
+                <span>En viaje por {tripDuration} min</span>
             </div>
           </div>
         </div>

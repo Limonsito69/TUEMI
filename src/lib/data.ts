@@ -29,9 +29,9 @@ export const mockRoutes: Route[] = [
 ];
 
 export const mockAlerts: Alert[] = [
-  { id: '1', vehiclePlate: '5678-EMI', type: 'Detenido demasiado tiempo', timestamp: new Date(Date.now() - 12 * 60000).toISOString(), details: 'Posible incidente: bus detenido 12 minutos fuera de parada.' },
-  { id: '2', vehiclePlate: '1234-TUB', type: 'Sobrecupo', timestamp: new Date(Date.now() - 30 * 60000).toISOString(), details: 'Alerta: 19 pasajeros con solo 18 asientos disponibles.' },
-  { id: '3', vehiclePlate: '9876-FGH', type: 'GPS sin señal', timestamp: new Date(Date.now() - 5 * 60000).toISOString(), details: 'No hay actualización de GPS por más de 5 minutos.' },
+  { id: '1', vehiclePlate: '5678-EMI', type: 'Detenido demasiado tiempo', timestamp: '2024-07-28T12:18:00Z', details: 'Posible incidente: bus detenido 12 minutos fuera de parada.' },
+  { id: '2', vehiclePlate: '1234-TUB', type: 'Sobrecupo', timestamp: '2024-07-28T12:00:00Z', details: 'Alerta: 19 pasajeros con solo 18 asientos disponibles.' },
+  { id: '3', vehiclePlate: '9876-FGH', type: 'GPS sin señal', timestamp: '2024-07-28T12:25:00Z', details: 'No hay actualización de GPS por más de 5 minutos.' },
 ];
 
 export const mockTrips: Trip[] = [
@@ -40,7 +40,7 @@ export const mockTrips: Trip[] = [
       routeId: '1', 
       driverId: '1', 
       vehicleId: '1', 
-      startTime: new Date(Date.now() - 45 * 60000).toISOString(), 
+      startTime: '2024-07-28T12:30:00Z', 
       endTime: null, 
       passengers: { abonado: 10, noAbonado: 3 }, 
       status: 'En curso',
@@ -51,7 +51,7 @@ export const mockTrips: Trip[] = [
       routeId: '2', 
       driverId: '3', 
       vehicleId: '3', 
-      startTime: new Date(Date.now() - 35 * 60000).toISOString(), 
+      startTime: '2024-07-28T12:40:00Z', 
       endTime: null, 
       passengers: { abonado: 8, noAbonado: 0 }, 
       status: 'En curso',
@@ -62,11 +62,22 @@ export const mockTrips: Trip[] = [
       routeId: '3', 
       driverId: '1', 
       vehicleId: '4', 
-      startTime: new Date().toISOString(), 
+      startTime: '2024-07-28T13:00:00Z', 
       endTime: null, 
       passengers: { abonado: 0, noAbonado: 0 }, 
       status: 'Pendiente',
       location: { lat: -16.500, lng: -68.13 }
+    },
+     { 
+      id: 'trip4', 
+      routeId: '2', 
+      driverId: '3', 
+      vehicleId: '3', 
+      startTime: '2024-07-27T08:00:00Z', 
+      endTime: '2024-07-27T09:15:00Z',
+      passengers: { abonado: 12, noAbonado: 2 }, 
+      status: 'Finalizado',
+      location: { lat: -16.545, lng: -68.07 }
     },
 ];
 

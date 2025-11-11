@@ -27,18 +27,27 @@ import {
 } from '@/lib/data';
 import { MapPin, Users, Play, Square, User, Bus } from 'lucide-react';
 import { format } from 'date-fns';
+import type { Trip } from '@/types';
 
 export default function DriverActiveRoutePage() {
-  const driver = getDriverById('1'); // Conductor de ejemplo: Juan López
-  const activeTrip = mockTrips.find(
-    (trip) => trip.driverId === driver?.id && trip.status === 'En curso'
-  );
+  const [activeTrip, setActiveTrip] = React.useState<Trip | undefined>(undefined);
+  const [tripStatus, setTripStatus] = React.useState<'pending' | 'active' | 'finished'>('pending');
+  const [passengerCount, setPassengerCount] = React.useState(0);
 
-  const [tripStatus, setTripStatus] = React.useState<'pending' | 'active' | 'finished'>('active');
-  const [passengerCount, setPassengerCount] = React.useState(activeTrip ? activeTrip.passengers.abonado + activeTrip.passengers.noAbonado : 13);
+  React.useEffect(() => {
+    const driver = getDriverById('1'); // Conductor de ejemplo: Juan López
+    const trip = mockTrips.find(
+      (t) => t.driverId === driver?.id && t.status === 'En curso'
+    );
+    if (trip) {
+      setActiveTrip(trip);
+      setTripStatus('active');
+      setPassengerCount(trip.passengers.abonado + trip.passengers.noAbonado);
+    }
+  }, []);
 
 
-  if (!driver || !activeTrip) {
+  if (!activeTrip) {
     return (
       <Card>
         <CardHeader>
@@ -51,8 +60,22 @@ export default function DriverActiveRoutePage() {
     );
   }
 
+  const driver = getDriverById(activeTrip.driverId);
   const route = getRouteById(activeTrip.routeId);
   const vehicle = getVehicleById(activeTrip.vehicleId);
+  
+  if (!driver || !route || !vehicle) {
+     return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Error de datos</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>No se pudieron cargar los detalles del viaje.</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const stops = [
     { name: 'Inicio: Plaza del Estudiante', status: 'visitado' },
@@ -97,7 +120,7 @@ export default function DriverActiveRoutePage() {
                 <Button disabled={tripStatus !== 'active'} onClick={() => setPassengerCount(p => p+1)}>
                     +1 Pasajero
                 </Button>
-                <Button variant="outline" disabled={tripStatus !== 'active'} onClick={() => setPassengerCount(p => Math.max(0, p-1))}>
+                <Button variant="outline" disabled={tripStatus !== 'active' || passengerCount === 0} onClick={() => setPassengerCount(p => Math.max(0, p-1))}>
                     -1 Pasajero
                 </Button>
             </CardFooter>
@@ -151,11 +174,11 @@ export default function DriverActiveRoutePage() {
           <CardContent className="flex flex-col items-center justify-center gap-4 text-center">
              <p className="text-sm text-muted-foreground">Estado Actual</p>
              <Badge variant={tripStatus === 'active' ? 'default' : 'secondary'} className="text-lg px-4 py-1">
-                {tripStatus === 'active' ? 'En Curso' : 'Finalizado'}
+                {tripStatus === 'pending' ? 'Pendiente' : tripStatus === 'active' ? 'En Curso' : 'Finalizado'}
              </Badge>
-             <p className="text-sm text-muted-foreground">
+             { tripStatus !== 'pending' && <p className="text-sm text-muted-foreground">
                 Iniciado a las {format(new Date(activeTrip.startTime), 'HH:mm')}
-             </p>
+             </p>}
           </CardContent>
           <CardFooter className="grid grid-cols-1 gap-2">
             <Button size="lg" disabled={tripStatus !== 'pending'} onClick={() => setTripStatus('active')}>
