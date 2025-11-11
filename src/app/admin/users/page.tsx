@@ -2,6 +2,9 @@
 
 import * as React from 'react';
 import { PlusCircle, File } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import {
   ColumnDef,
   flexRender,
@@ -24,14 +27,6 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -41,8 +36,111 @@ import { mockUsers } from '@/lib/data';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 
-const data: User[] = mockUsers;
+const formSchema = z.object({
+  name: z.string().min(3, "El nombre debe tener al menos 3 caracteres."),
+  ci: z.string().min(7, "El CI debe tener al menos 7 caracteres."),
+  phone: z.string().min(8, "El teléfono debe tener al menos 8 caracteres."),
+});
+
+function AddUserForm({ setOpen, setUsers }: { setOpen: (open: boolean) => void, setUsers: React.Dispatch<React.SetStateAction<User[]>> }) {
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: "",
+      ci: "",
+      phone: "",
+    },
+  });
+
+  function onSubmit(values: z.infer<typeof formSchema>) {
+    const newUser: User = {
+      id: (Math.random() * 10000).toString(),
+      ...values,
+      status: 'No Abonado',
+      avatar: 'user-placeholder'
+    };
+    setUsers(currentUsers => [newUser, ...currentUsers]);
+    alert('¡Usuario añadido con éxito!');
+    setOpen(false);
+  }
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <DialogHeader>
+          <DialogTitle>Añadir Nuevo Usuario</DialogTitle>
+          <DialogDescription>
+            Registra un nuevo estudiante o miembro del personal.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Nombre Completo</FormLabel>
+                <FormControl>
+                  <Input placeholder="Ej: Juan Pérez" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="ci"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Cédula de Identidad</FormLabel>
+                <FormControl>
+                  <Input placeholder="Ej: 1234567 LP" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="phone"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Teléfono</FormLabel>
+                <FormControl>
+                  <Input placeholder="Ej: +591 71234567" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+          <Button type="submit">Guardar Usuario</Button>
+        </DialogFooter>
+      </form>
+    </Form>
+  );
+}
+
 
 export const columns: ColumnDef<User>[] = [
   {
@@ -114,12 +212,15 @@ export default function UsersPage() {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [activeTab, setActiveTab] = React.useState('all');
+  const [users, setUsers] = React.useState<User[]>(mockUsers);
+  const [isAddUserOpen, setAddUserOpen] = React.useState(false);
+
 
   const filteredData = React.useMemo(() => {
-    if (activeTab === 'all') return data;
+    if (activeTab === 'all') return users;
     const statusToFilter = activeTab === 'noabonado' ? 'No Abonado' : 'Abonado';
-    return data.filter(user => user.status === statusToFilter);
-  }, [activeTab]);
+    return users.filter(user => user.status === statusToFilter);
+  }, [activeTab, users]);
 
   const table = useReactTable({
     data: filteredData,
@@ -151,12 +252,19 @@ export default function UsersPage() {
               Exportar
             </span>
           </Button>
-          <Button size="sm" className="h-8 gap-1">
-            <PlusCircle className="h-3.5 w-3.5" />
-            <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-              Añadir Usuario
-            </span>
-          </Button>
+          <Dialog open={isAddUserOpen} onOpenChange={setAddUserOpen}>
+            <DialogTrigger asChild>
+                <Button size="sm" className="h-8 gap-1">
+                    <PlusCircle className="h-3.5 w-3.5" />
+                    <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                    Añadir Usuario
+                    </span>
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <AddUserForm setOpen={setAddUserOpen} setUsers={setUsers} />
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
       <TabsContent value={activeTab}>
