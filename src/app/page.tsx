@@ -37,6 +37,14 @@ function LoginForm() {
   const [role, setRole] = React.useState<Role>('admin');
 
   const handleLogin = () => {
+    // En una aplicación real, aquí se autenticaría y se guardaría la sesión del usuario.
+    // Para esta demo, simplemente guardamos el rol.
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('loggedInUser', JSON.stringify({ role }));
+      // Limpiamos datos de un posible usuario registrado para no mezclarlos.
+      sessionStorage.removeItem('registeredUser');
+    }
+    
     switch (role) {
       case 'admin':
         router.push('/admin');
@@ -116,8 +124,18 @@ function RegisterForm() {
   });
 
   function onSubmit(values: z.infer<typeof registerFormSchema>) {
-    // En una aplicación real, aquí se guardaría el usuario en la base de datos.
-    console.log("Nuevo usuario registrado:", values);
+    // Simulamos guardar el nuevo usuario en la sesión del navegador.
+    const newUser = {
+      ...values,
+      id: 'new-user',
+      status: 'No Abonado',
+      avatar: 'user-placeholder',
+      role: 'student',
+    };
+    if (typeof window !== 'undefined') {
+        sessionStorage.setItem('registeredUser', JSON.stringify(newUser));
+    }
+    
     alert('¡Registro exitoso! Serás redirigido a tu portal.');
     router.push('/student');
   }

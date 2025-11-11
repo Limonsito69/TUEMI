@@ -1,5 +1,7 @@
+
 'use client';
 
+import * as React from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,10 +16,52 @@ import { Progress } from '@/components/ui/progress';
 import { mockUsers } from '@/lib/data';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { QrCode } from 'lucide-react';
+import type { User } from '@/types';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function StudentProfilePage() {
-  const student = mockUsers[0]; // Usando a Ana Pérez como ejemplo
-  const avatar = PlaceHolderImages.find((img) => img.id === student.avatar);
+  const [student, setStudent] = React.useState<User | null>(null);
+
+  React.useEffect(() => {
+    // Intentamos obtener el usuario recién registrado desde sessionStorage
+    const registeredUserJson = sessionStorage.getItem('registeredUser');
+    if (registeredUserJson) {
+      setStudent(JSON.parse(registeredUserJson));
+    } else {
+      // Si no, usamos el usuario de ejemplo
+      setStudent(mockUsers[0]);
+    }
+  }, []);
+
+  const avatar = PlaceHolderImages.find((img) => img.id === student?.avatar);
+
+  if (!student) {
+    return (
+        <div className="grid gap-6">
+            <Card>
+                <CardHeader className="flex flex-row items-center gap-4">
+                    <Skeleton className="h-20 w-20 rounded-full" />
+                    <div className="grid gap-2">
+                        <Skeleton className="h-7 w-48" />
+                        <Skeleton className="h-4 w-32" />
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <Skeleton className="h-10 w-40" />
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader>
+                    <Skeleton className="h-6 w-1/2"/>
+                    <Skeleton className="h-4 w-3/4"/>
+                </CardHeader>
+                <CardContent>
+                     <Skeleton className="h-8 w-full"/>
+                </CardContent>
+            </Card>
+        </div>
+    )
+  }
 
   return (
     <div className="grid gap-6">
