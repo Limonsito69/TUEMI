@@ -31,14 +31,20 @@ function getPathSegments(pathname: string) {
 
 function formatSegment(segment: string) {
   const segmentMap: { [key: string]: string } = {
-    dashboard: 'Principal',
+    admin: 'Principal',
     users: 'Usuarios',
     drivers: 'Conductores',
     vehicles: 'Vehículos',
     routes: 'Rutas',
     monitoring: 'Monitoreo',
     reports: 'Reportes',
-    'student-view': 'Vista Estudiante',
+    student: 'Estudiante',
+    driver: 'Conductor',
+    assistant: 'Asistente IA',
+    profile: 'Perfil',
+    'route-map': 'Mapa de Rutas',
+    history: 'Historial',
+    'active-route': 'Ruta Activa',
   };
   return segmentMap[segment] || segment
     .split('-')
@@ -89,7 +95,7 @@ export function AppHeader() {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuLabel>Cuenta de Administrador</DropdownMenuLabel>
+          <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem>Configuración</DropdownMenuItem>
           <DropdownMenuItem>Soporte</DropdownMenuItem>
