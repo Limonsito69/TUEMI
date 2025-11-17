@@ -8,7 +8,7 @@ export type User = {
 };
 
 export type Driver = {
-  id: string;
+  id: number;
   name: string;
   ci: string;
   phone: string;
@@ -28,11 +28,11 @@ export type Vehicle = {
 };
 
 export type Route = {
-  id: string;
+  id: number;
   name: string;
   type: 'Abonados' | 'Mixto';
-  driverId: string;
-  vehicleId: string;
+  driverId: number; 
+  vehicleId: number; 
   status: 'Publicada' | 'En borrador' | 'Inactiva';
   schedule: string;
   stops: number;
@@ -47,19 +47,17 @@ export type Alert = {
 };
 
 export type Trip = {
-  id: string;
-  routeId: string;
-  driverId: string;
-  vehicleId: string;
-  startTime: string;
-  endTime: string | null;
-  passengers: {
-    abonado: number;
-    noAbonado: number;
-  };
+  id: number; // <-- number
+  routeId: number;
+  driverId: number;
+  vehicleId: number;
+  startTime: Date; // <-- Date en lugar de string
+  endTime: Date | null;
+  // Aplanamos los pasajeros para coincidir con SQL
+  passengersAbonado: number;
+  passengersNoAbonado: number;
   status: 'En curso' | 'Finalizado' | 'Pendiente';
-  location: {
-    lat: number;
-    lng: number;
-  }
+  // Aplanamos la ubicación
+  locationLat: number | null;
+  locationLng: number | null;
 };
