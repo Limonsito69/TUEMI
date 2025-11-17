@@ -1,5 +1,7 @@
-# Firebase Studio
+## BYTE SQUAD
 
-This is a NextJS starter in Firebase Studio.
-
-To get started, take a look at src/app/page.tsx.
+ALEJANDRO ASPI BARDIEL
+EDSON FRANCHESCOLI GUARACHI ALARCON
+HERLAN SANTIAGO MISTAS HUANCA
+GUILLERMO RODRIGUES RIVAS
+GABRIELA QUISPE SILVA
