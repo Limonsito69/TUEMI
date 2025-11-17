@@ -1,5 +1,5 @@
 export type User = {
-  id: string;
+  id: number;
   name: string;
   ci: string;
   phone: string;
@@ -18,7 +18,7 @@ export type Driver = {
 };
 
 export type Vehicle = {
-  id: string;
+  id: number;
   plate: string;
   brand: string;
   model: string;
