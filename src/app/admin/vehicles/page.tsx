@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Image from 'next/image';
-import { MoreHorizontal, PlusCircle, File, Pencil, Trash } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Pencil, Trash } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -80,10 +80,10 @@ function AddVehicleForm({ setOpen, setVehicles }: { setOpen: (open: boolean) => 
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      // CORRECCIÓN: Añadimos la propiedad 'image' que falta
+      // CORRECCIÓN: Añadimos la imagen por defecto aquí
       const vehicleData = {
         ...values,
-        image: 'vehicle-placeholder', // Usamos un placeholder por defecto
+        image: 'vehicle-placeholder', 
       };
 
       const newVehicle = await createVehicle(vehicleData);

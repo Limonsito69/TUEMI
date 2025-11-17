@@ -10,186 +10,245 @@ import {
   CardFooter
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import {
-  mockTrips,
-  getRouteById,
-  getVehicleById,
-  getDriverById,
-} from '@/lib/data';
-import { MapPin, Users, Play, Square, User, Bus } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { MapPin, Users, Play, Square, Bus, Navigation } from 'lucide-react';
 import { format } from 'date-fns';
-import type { Trip } from '@/types';
+import { Trip, Route, Vehicle } from '@/types';
+import { 
+  getDriverActiveTrip, 
+  getRoutes, 
+  getVehicles, 
+  startTrip, 
+  endTrip, 
+  updateTripLocation 
+} from '@/lib/actions';
 
 export default function DriverActiveRoutePage() {
-  const [activeTrip, setActiveTrip] = React.useState<Trip | undefined>(undefined);
-  const [tripStatus, setTripStatus] = React.useState<'pending' | 'active' | 'finished'>('pending');
-  const [passengerCount, setPassengerCount] = React.useState(0);
+  // --- ESTADOS (Aquí definimos todas las variables) ---
+  const [driverId, setDriverId] = React.useState<number | null>(null);
+  const [activeTrip, setActiveTrip] = React.useState<Trip | null>(null);
+  const [routes, setRoutes] = React.useState<Route[]>([]);
+  const [vehicles, setVehicles] = React.useState<Vehicle[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
 
+  // Estado para el formulario de inicio
+  const [selectedRouteId, setSelectedRouteId] = React.useState<string>('');
+  const [selectedVehicleId, setSelectedVehicleId] = React.useState<string>('');
+
+  // --- EFECTOS ---
+
+  // 1. Obtener el ID del conductor desde la sesión al cargar
   React.useEffect(() => {
-    const driver = getDriverById('1'); // Conductor de ejemplo: Juan López
-    const trip = mockTrips.find(
-      (t) => t.driverId === driver?.id && t.status === 'En curso'
-    );
-    if (trip) {
-      setActiveTrip(trip);
-      setTripStatus('active');
-      setPassengerCount(trip.passengers.abonado + trip.passengers.noAbonado);
+    const storedUser = sessionStorage.getItem('loggedInUser');
+    if (storedUser) {
+      const user = JSON.parse(storedUser);
+      if (user.role === 'driver' && user.id) {
+        setDriverId(user.id);
+      } else {
+        console.error("Usuario no es conductor o no tiene ID válido");
+        // Aquí podrías redirigir al login si quisieras
+      }
+    } else {
+        // Si no hay sesión, dejamos driverId en null
+        console.log("No hay sesión activa");
     }
   }, []);
 
+  // 2. Cargar datos de la BD (solo cuando ya tenemos el driverId)
+  const loadData = React.useCallback(async () => {
+    if (!driverId) return;
 
+    setIsLoading(true);
+    try {
+      const [trip, r, v] = await Promise.all([
+        getDriverActiveTrip(driverId),
+        getRoutes(),
+        getVehicles()
+      ]);
+      
+      setActiveTrip(trip);
+      // Solo mostrar rutas publicadas/borrador y vehículos activos
+      setRoutes(r.filter(x => x.status === 'Publicada' || x.status === 'En borrador'));
+      setVehicles(v.filter(x => x.status === 'Activo'));
+    } catch (error) {
+      console.error("Error cargando datos:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [driverId]);
+
+  React.useEffect(() => {
+    if (driverId) {
+      loadData();
+    } else {
+        // Si no hay driverId, quitamos el loading inicial tras un breve momento
+        // para mostrar el estado vacío o login
+        const timer = setTimeout(() => setIsLoading(false), 500);
+        return () => clearTimeout(timer);
+    }
+  }, [driverId, loadData]);
+
+  // --- HANDLERS (Funciones de los botones) ---
+
+  const handleStartTrip = async () => {
+    if (!driverId) return alert('No se ha identificado al conductor.');
+    if (!selectedRouteId || !selectedVehicleId) return alert('Selecciona ruta y vehículo');
+    
+    try {
+      // Coordenadas iniciales (Plaza del Estudiante, La Paz aprox)
+      const startLat = -16.500;
+      const startLng = -68.119;
+
+      const newTrip = await startTrip({
+        routeId: parseInt(selectedRouteId),
+        vehicleId: parseInt(selectedVehicleId),
+        driverId: driverId, 
+        startLat,
+        startLng
+      });
+
+      if (newTrip) {
+        setActiveTrip(newTrip);
+        alert('¡Viaje iniciado!');
+      }
+    } catch (error) {
+      console.error(error);
+      alert('Error al iniciar el viaje.');
+    }
+  };
+
+  const handleEndTrip = async () => {
+    if (!activeTrip) return;
+    if (confirm('¿Estás seguro de finalizar el viaje?')) {
+      const success = await endTrip(activeTrip.id);
+      if (success) {
+        setActiveTrip(null);
+        setSelectedRouteId('');
+        setSelectedVehicleId('');
+        alert('Viaje finalizado correctamente.');
+      }
+    }
+  };
+
+  const handleSimulateGPS = async () => {
+    if (!activeTrip) return;
+    // Mueve el bus un poco al sur-este para simular movimiento
+    const newLat = (activeTrip.locationLat || -16.500) - 0.001;
+    const newLng = (activeTrip.locationLng || -68.119) + 0.001;
+    
+    await updateTripLocation(activeTrip.id, newLat, newLng);
+    
+    // Actualizamos el estado local para verlo reflejado al instante
+    setActiveTrip({ ...activeTrip, locationLat: newLat, locationLng: newLng });
+    alert('Ubicación GPS actualizada (simulación)');
+  };
+
+  // --- RENDERIZADO ---
+
+  if (isLoading) {
+    return <div className="p-8 text-center">Cargando panel de conductor...</div>;
+  }
+
+  if (!driverId) {
+      return (
+        <Card className="max-w-md mx-auto mt-8">
+            <CardHeader><CardTitle>Acceso Restringido</CardTitle></CardHeader>
+            <CardContent>Debes iniciar sesión como conductor para ver esta página.</CardContent>
+        </Card>
+      );
+  }
+
+  // VISTA 1: SIN VIAJE ACTIVO (Formulario de Inicio)
   if (!activeTrip) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>No hay viaje activo</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p>No tienes ninguna ruta asignada en este momento.</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const driver = getDriverById(activeTrip.driverId);
-  const route = getRouteById(activeTrip.routeId);
-  const vehicle = getVehicleById(activeTrip.vehicleId);
-  
-  if (!driver || !route || !vehicle) {
-     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Error de datos</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p>No se pudieron cargar los detalles del viaje.</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const stops = [
-    { name: 'Inicio: Plaza del Estudiante', status: 'visitado' },
-    { name: 'Parada: Av. 6 de Agosto', status: 'visitado' },
-    { name: 'Parada: C. 21 de Calacoto', status: 'actual' },
-    { name: 'Parada: C. 15 de Obrajes', status: 'pendiente' },
-    { name: 'Destino: Campus EMI Irpavi', status: 'pendiente' },
-  ];
-
-  return (
-    <div className="grid gap-6 lg:grid-cols-3">
-      <div className="lg:col-span-2 space-y-6">
-         <Card>
-            <CardHeader>
-                <CardTitle>Información del Viaje Actual</CardTitle>
-                <CardDescription>Ruta: <span className="font-semibold">{route?.name}</span></CardDescription>
-            </CardHeader>
-            <CardContent className="grid sm:grid-cols-3 gap-4">
-                <div className="flex items-center gap-4 p-4 rounded-lg border bg-card">
-                    <User className="w-8 h-8 text-primary"/>
-                    <div>
-                        <p className="text-sm text-muted-foreground">Conductor</p>
-                        <p className="font-semibold">{driver.name}</p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-4 p-4 rounded-lg border bg-card">
-                    <Bus className="w-8 h-8 text-primary"/>
-                    <div>
-                        <p className="text-sm text-muted-foreground">Vehículo</p>
-                        <p className="font-semibold">{vehicle?.plate}</p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-4 p-4 rounded-lg border bg-card">
-                    <Users className="w-8 h-8 text-primary"/>
-                    <div>
-                        <p className="text-sm text-muted-foreground">Pasajeros</p>
-                        <p className="font-semibold">{passengerCount} / {vehicle?.capacity}</p>
-                    </div>
-                </div>
-            </CardContent>
-            <CardFooter className="gap-2">
-                <Button disabled={tripStatus !== 'active'} onClick={() => setPassengerCount(p => p+1)}>
-                    +1 Pasajero
-                </Button>
-                <Button variant="outline" disabled={tripStatus !== 'active' || passengerCount === 0} onClick={() => setPassengerCount(p => Math.max(0, p-1))}>
-                    -1 Pasajero
-                </Button>
-            </CardFooter>
-        </Card>
+      <div className="max-w-md mx-auto mt-8">
         <Card>
           <CardHeader>
-            <CardTitle>Lista de Paradas</CardTitle>
+            <CardTitle>Iniciar Nuevo Turno</CardTitle>
+            <CardDescription>Selecciona tu ruta y vehículo asignado.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Parada</TableHead>
-                  <TableHead className="text-right">Estado</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {stops.map((stop) => (
-                  <TableRow key={stop.name}>
-                    <TableCell className="font-medium flex items-center gap-2">
-                        <MapPin className={`w-4 h-4 ${stop.status === 'actual' ? 'text-primary' : 'text-muted-foreground'}`}/>
-                        {stop.name}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Badge
-                        variant={
-                          stop.status === 'visitado'
-                            ? 'secondary'
-                            : stop.status === 'actual'
-                            ? 'default'
-                            : 'outline'
-                        }
-                      >
-                        {stop.status.charAt(0).toUpperCase() + stop.status.slice(1)}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Ruta Asignada</Label>
+              <Select onValueChange={setSelectedRouteId} value={selectedRouteId}>
+                <SelectTrigger><SelectValue placeholder="Seleccionar Ruta" /></SelectTrigger>
+                <SelectContent>
+                  {routes.map(r => <SelectItem key={r.id} value={r.id.toString()}>{r.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Vehículo</Label>
+              <Select onValueChange={setSelectedVehicleId} value={selectedVehicleId}>
+                <SelectTrigger><SelectValue placeholder="Seleccionar Vehículo" /></SelectTrigger>
+                <SelectContent>
+                  {vehicles.map(v => <SelectItem key={v.id} value={v.id.toString()}>{v.plate} - {v.model}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </CardContent>
-        </Card>
-      </div>
-
-      <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Control de Viaje</CardTitle>
-            <CardDescription>Inicia o finaliza tu ruta actual.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center justify-center gap-4 text-center">
-             <p className="text-sm text-muted-foreground">Estado Actual</p>
-             <Badge variant={tripStatus === 'active' ? 'default' : 'secondary'} className="text-lg px-4 py-1">
-                {tripStatus === 'pending' ? 'Pendiente' : tripStatus === 'active' ? 'En Curso' : 'Finalizado'}
-             </Badge>
-             { tripStatus !== 'pending' && <p className="text-sm text-muted-foreground">
-                Iniciado a las {format(new Date(activeTrip.startTime), 'HH:mm')}
-             </p>}
-          </CardContent>
-          <CardFooter className="grid grid-cols-1 gap-2">
-            <Button size="lg" disabled={tripStatus !== 'pending'} onClick={() => setTripStatus('active')}>
-                <Play className="mr-2 h-4 w-4"/> Iniciar Viaje
-            </Button>
-            <Button size="lg" variant="destructive" disabled={tripStatus !== 'active'} onClick={() => setTripStatus('finished')}>
-                <Square className="mr-2 h-4 w-4"/> Finalizar Viaje
+          <CardFooter>
+            <Button className="w-full" size="lg" onClick={handleStartTrip} disabled={!selectedRouteId || !selectedVehicleId}>
+              <Play className="mr-2 h-5 w-5" /> Comenzar Viaje
             </Button>
           </CardFooter>
         </Card>
       </div>
+    );
+  }
+
+  // VISTA 2: EN RUTA (Panel de Control)
+  const currentRoute = routes.find(r => r.id === activeTrip.routeId);
+  const currentVehicle = vehicles.find(v => v.id === activeTrip.vehicleId);
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-1 max-w-2xl mx-auto">
+       <Card className="border-primary/50 shadow-lg">
+          <CardHeader className="bg-primary/5 pb-4">
+              <div className="flex justify-between items-start">
+                <div>
+                    <Badge variant="default" className="mb-2">EN CURSO</Badge>
+                    <CardTitle className="text-2xl">{currentRoute?.name}</CardTitle>
+                    <CardDescription className="mt-1 font-mono text-lg text-foreground">
+                       {currentVehicle?.plate} • {currentVehicle?.model}
+                    </CardDescription>
+                </div>
+                <Bus className="h-12 w-12 text-primary/20" />
+              </div>
+          </CardHeader>
+          <CardContent className="pt-6 space-y-6">
+              <div className="grid grid-cols-2 gap-4 text-center">
+                  <div className="p-4 rounded-lg bg-secondary/50">
+                      <p className="text-xs text-muted-foreground uppercase font-semibold">Inicio</p>
+                      <p className="text-xl font-bold">{format(new Date(activeTrip.startTime), 'HH:mm')}</p>
+                  </div>
+                  <div className="p-4 rounded-lg bg-secondary/50">
+                      <p className="text-xs text-muted-foreground uppercase font-semibold">Pasajeros</p>
+                      <p className="text-xl font-bold flex items-center justify-center gap-2">
+                        <Users className="h-5 w-5" /> 
+                        {activeTrip.passengersAbonado + activeTrip.passengersNoAbonado}
+                      </p>
+                  </div>
+              </div>
+
+              <div className="space-y-2">
+                 <Button variant="outline" className="w-full h-16 text-lg" onClick={handleSimulateGPS}>
+                    <Navigation className="mr-2 h-6 w-6 text-blue-500" /> 
+                    Simular Avance GPS
+                 </Button>
+                 <p className="text-xs text-center text-muted-foreground">
+                   * En una app real, esto se actualiza automáticamente.
+                 </p>
+              </div>
+          </CardContent>
+          <CardFooter className="pt-2">
+              <Button variant="destructive" size="lg" className="w-full" onClick={handleEndTrip}>
+                  <Square className="mr-2 h-5 w-5 fill-current" /> Finalizar Viaje
+              </Button>
+          </CardFooter>
+      </Card>
     </div>
   );
 }

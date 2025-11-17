@@ -44,8 +44,6 @@ export async function getUsers(): Promise<User[]> {
   try {
     const pool = await getDbPool();
     const result = await pool.request().query('SELECT * FROM Users ORDER BY id DESC');
-    
-    // El driver mssql devuelve los datos en 'recordset'
     return result.recordset as User[];
   } catch (error) {
     console.error('Error al obtener usuarios:', error);
@@ -57,8 +55,16 @@ export async function createUser(userData: { name: string; ci: string; phone: st
   try {
     const pool = await getDbPool();
     
-    // Usamos parámetros (@name, @ci...) para prevenir inyección SQL.
-    // OUTPUT INSERTED.* nos devuelve los datos recién creados (incluyendo el ID automático).
+    // 1. VALIDACIÓN: Verificar si el CI ya existe
+    const check = await pool.request()
+      .input('ci', sql.NVarChar, userData.ci)
+      .query("SELECT id FROM Users WHERE ci = @ci");
+      
+    if (check.recordset.length > 0) {
+      throw new Error(`El CI ${userData.ci} ya está registrado.`);
+    }
+
+    // 2. INSERCIÓN
     const result = await pool.request()
       .input('name', sql.NVarChar, userData.name)
       .input('ci', sql.NVarChar, userData.ci)
@@ -69,13 +75,15 @@ export async function createUser(userData: { name: string; ci: string; phone: st
         VALUES (@name, @ci, @phone, 'No Abonado', 'user-placeholder')
       `);
 
-    if (result.recordset.length > 0) {
-      return result.recordset[0] as User;
-    }
-    return null;
-  } catch (error) {
+    const newUser = result.recordset[0] as User;
+
+    // 3. AUDITORÍA
+    await logAudit('Admin', newUser.id, 'CREAR', `Usuario creado: ${newUser.name} (${newUser.ci})`);
+
+    return newUser;
+  } catch (error: any) {
     console.error('Error al crear usuario:', error);
-    throw new Error('No se pudo crear el usuario. Verifica que el CI no esté duplicado.');
+    throw new Error(error.message || 'No se pudo crear el usuario.');
   }
 }
 
@@ -83,7 +91,13 @@ export async function updateUser(user: User): Promise<User | null> {
   try {
     const pool = await getDbPool();
     
-    // IMPORTANTE: Usamos el ID para saber a quién actualizar (WHERE id = @id)
+    // Obtenemos el estado anterior para comparar (Auditoría y Lógica de Negocio)
+    const previousDataResult = await pool.request()
+        .input('id', sql.Int, user.id)
+        .query("SELECT status FROM Users WHERE id = @id");
+    const previousStatus = previousDataResult.recordset[0]?.status;
+
+    // UPDATE
     const result = await pool.request()
       .input('id', sql.Int, user.id)
       .input('name', sql.NVarChar, user.name)
@@ -97,23 +111,32 @@ export async function updateUser(user: User): Promise<User | null> {
         WHERE id = @id
       `);
 
-    if (result.recordset.length > 0) {
-      return result.recordset[0] as User;
+    const updatedUser = result.recordset[0] as User;
+
+    // LOGICA DE NEGOCIO: Si cambió de Abonado a No Abonado
+    if (previousStatus === 'Abonado' && updatedUser.status === 'No Abonado') {
+        // Aquí iría la lógica para desactivar su parada
+        // await deactivateUserStop(user.id); 
+        console.log(`[Sistema] Desactivando parada para usuario ${user.id}...`);
+        await logAudit('Sistema', user.id, 'DESVINCULACION', 'Se desactivó la parada por falta de pago.');
     }
-    return null;
+
+    // AUDITORÍA GENÉRICA
+    await logAudit('Admin', user.id, 'EDITAR', `Datos actualizados. Estado: ${previousStatus} -> ${updatedUser.status}`);
+
+    return updatedUser;
   } catch (error) {
     console.error('Error al actualizar usuario:', error);
     throw new Error('No se pudo actualizar el usuario.');
   }
 }
 
-/**
- * Elimina un usuario por su ID.
- */
 export async function deleteUser(userId: number): Promise<boolean> {
   try {
     const pool = await getDbPool();
     
+    await logAudit('Admin', userId, 'ELIMINAR', 'Usuario eliminado del sistema.');
+
     await pool.request()
       .input('id', sql.Int, userId)
       .query('DELETE FROM Users WHERE id = @id');
@@ -445,5 +468,158 @@ export async function simulateVehicleMovement(): Promise<void> {
     `);
   } catch (error) {
     console.error('Error en simulación de movimiento:', error);
+  }
+}
+
+export async function getDriverActiveTrip(driverId: number): Promise<Trip | null> {
+  try {
+    const pool = await getDbPool();
+    const result = await pool.request()
+      .input('driverId', sql.Int, driverId)
+      .query("SELECT * FROM Trips WHERE driverId = @driverId AND status = 'En curso'");
+    
+    if (result.recordset.length > 0) {
+      return result.recordset[0] as Trip;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error al buscar viaje activo del conductor:', error);
+    return null;
+  }
+}
+
+/**
+ * Finaliza un viaje (marca la hora de fin y cambia el estado).
+ */
+export async function endTrip(tripId: number): Promise<boolean> {
+  try {
+    const pool = await getDbPool();
+    const endTime = new Date();
+    
+    await pool.request()
+      .input('id', sql.Int, tripId)
+      .input('endTime', sql.DateTime2, endTime)
+      .query("UPDATE Trips SET status = 'Finalizado', endTime = @endTime WHERE id = @id");
+      
+    return true;
+  } catch (error) {
+    console.error('Error al finalizar viaje:', error);
+    return false;
+  }
+}
+
+/**
+ * Actualiza la ubicación de un viaje (Simula el GPS enviando datos).
+ */
+export async function updateTripLocation(tripId: number, lat: number, lng: number): Promise<boolean> {
+  try {
+    const pool = await getDbPool();
+    await pool.request()
+      .input('id', sql.Int, tripId)
+      .input('lat', sql.Decimal(9, 6), lat)
+      .input('lng', sql.Decimal(9, 6), lng)
+      .query("UPDATE Trips SET locationLat = @lat, locationLng = @lng WHERE id = @id");
+    return true;
+  } catch (error) {
+    console.error('Error al actualizar ubicación:', error);
+    return false;
+  }
+}
+
+export async function authenticate(ci: string, role: 'student' | 'driver' | 'admin') {
+  try {
+    const pool = await getDbPool();
+    
+    if (role === 'driver') {
+      // Buscar en tabla Drivers
+      const result = await pool.request()
+        .input('ci', sql.NVarChar, ci)
+        .query("SELECT * FROM Drivers WHERE ci = @ci");
+        
+      if (result.recordset.length > 0) {
+        // Retornamos el conductor encontrado
+        const driver = result.recordset[0] as Driver;
+        // Verificamos que esté activo (opcional)
+        if (driver.status === 'Inactivo') return { success: false, message: 'Conductor inactivo.' };
+        return { success: true, user: driver, role: 'driver' };
+      }
+    } 
+    else if (role === 'student') {
+      // Buscar en tabla Users
+      const result = await pool.request()
+        .input('ci', sql.NVarChar, ci)
+        .query("SELECT * FROM Users WHERE ci = @ci");
+        
+      if (result.recordset.length > 0) {
+        return { success: true, user: result.recordset[0] as User, role: 'student' };
+      }
+    }
+    else if (role === 'admin') {
+      // Para ADMIN, por simplicidad en esta demo, usaremos un CI "maestro"
+      // o podrías buscar en una tabla de Admins si la tuvieras.
+      if (ci === 'admin123') {
+         return { success: true, user: { name: 'Administrador' }, role: 'admin' };
+      }
+    }
+
+    return { success: false, message: 'Credenciales no encontradas.' };
+
+  } catch (error) {
+    console.error('Error en autenticación:', error);
+    return { success: false, message: 'Error del servidor.' };
+  }
+}
+
+/**
+ * Registra un nuevo estudiante desde la página pública.
+ */
+export async function registerStudent(data: { name: string; ci: string; phone: string }) {
+  // Reutilizamos la lógica de crear usuario, pero forzamos el rol de estudiante/no abonado
+  // y manejamos errores de duplicados específicamente para el frontend público.
+  try {
+    const pool = await getDbPool();
+    
+    // Verificar si ya existe
+    const check = await pool.request()
+        .input('ci', sql.NVarChar, data.ci)
+        .query("SELECT id FROM Users WHERE ci = @ci");
+        
+    if (check.recordset.length > 0) {
+        return { success: false, message: 'Este CI ya está registrado.' };
+    }
+
+    // Insertar
+    const result = await pool.request()
+      .input('name', sql.NVarChar, data.name)
+      .input('ci', sql.NVarChar, data.ci)
+      .input('phone', sql.NVarChar, data.phone)
+      .query(`
+        INSERT INTO Users (name, ci, phone, status, avatar)
+        OUTPUT INSERTED.*
+        VALUES (@name, @ci, @phone, 'No Abonado', 'user-placeholder')
+      `);
+
+    if (result.recordset.length > 0) {
+       return { success: true, user: result.recordset[0] as User };
+    }
+    return { success: false, message: 'No se pudo registrar.' };
+
+  } catch (error) {
+    console.error('Error en registro:', error);
+    return { success: false, message: 'Error del servidor.' };
+  }
+}
+async function logAudit(adminName: string, targetUserId: number, action: string, details: string) {
+  try {
+    const pool = await getDbPool();
+    await pool.request()
+      .input('adminName', sql.NVarChar, adminName)
+      .input('targetUserId', sql.Int, targetUserId)
+      .input('action', sql.NVarChar, action)
+      .input('details', sql.NVarChar, details)
+      .query("INSERT INTO AuditLogs (adminName, targetUserId, action, details) VALUES (@adminName, @targetUserId, @action, @details)");
+  } catch (error) {
+    console.error("Error guardando log de auditoría:", error);
+    // No lanzamos error para no interrumpir la acción principal
   }
 }
