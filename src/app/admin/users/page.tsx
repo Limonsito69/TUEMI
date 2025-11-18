@@ -11,7 +11,8 @@ import {
   Trash, 
   Eye, 
   History, 
-  User as UserIcon 
+  User as UserIcon,
+  KeyRound
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -38,13 +39,13 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { User } from '@/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Switch } from '@/components/ui/switch';
-import { Checkbox } from '@/components/ui/checkbox'; // Necesitarás asegurarte de tener este componente o usar el nativo
+import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import {
   Dialog,
@@ -80,13 +81,27 @@ import {
 } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getUsers, createUser, updateUser, deleteUser, getUserAuditLogs, resetUserPassword, AuditLog } from '@/lib/actions';
+import { 
+  getUsers, 
+  createUser, 
+  updateUser, 
+  deleteUser, 
+  getUserAuditLogs, 
+  resetUserPassword,
+  AuditLog 
+} from '@/lib/actions';
 
-// --- Esquema de Validación ---
+// --- Constantes y Esquemas ---
+
+const EXTENSIONES = ["LP", "SC", "CB", "OR", "PT", "TJ", "CH", "BE", "PD"];
+
 const formSchema = z.object({
-  name: z.string().min(3, "El nombre debe tener al menos 3 caracteres."),
-  ci: z.string().min(5, "El CI debe tener al menos 5 caracteres."),
-  phone: z.string().min(8, "El teléfono debe tener al menos 8 caracteres."),
+  nombres: z.string().min(2, "Nombre requerido"),
+  paterno: z.string().min(2, "Ap. Paterno requerido"),
+  materno: z.string().optional(),
+  ci_numero: z.string().min(5, "CI requerido"),
+  ci_extension: z.string().min(2, "Extensión requerida"),
+  phone: z.string().min(8, "Celular requerido"),
 });
 
 // --- Componente: Panel Lateral de Detalle (Historial) ---
@@ -123,7 +138,7 @@ function UserDetailSheet({
           <SheetDescription>Detalles completos e historial de actividad.</SheetDescription>
         </SheetHeader>
 
-        {/* --- CABECERA DEL PERFIL --- */}
+        {/* CABECERA */}
         <div className="flex flex-col items-center mb-8">
           <Avatar className="h-24 w-24 mb-4 border-4 border-muted">
             <AvatarImage src={avatar?.imageUrl} />
@@ -135,7 +150,7 @@ function UserDetailSheet({
           </Badge>
         </div>
 
-        {/* --- DATOS PERSONALES --- */}
+        {/* DATOS */}
         <div className="space-y-4 mb-8">
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
             <UserIcon className="w-4 h-4" /> Datos Personales
@@ -160,7 +175,7 @@ function UserDetailSheet({
           </div>
         </div>
 
-        {/* --- HISTORIAL (TIMELINE) --- */}
+        {/* HISTORIAL */}
         <div className="space-y-4">
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
             <History className="w-4 h-4" /> Historial de Cambios
@@ -175,9 +190,7 @@ function UserDetailSheet({
               <div className="space-y-6">
                 {logs.map((log) => (
                   <div key={log.id} className="relative pl-6 border-l-2 border-muted pb-1 last:pb-0">
-                    {/* Punto en la línea de tiempo */}
                     <div className="absolute -left-[5px] top-1 h-2.5 w-2.5 rounded-full bg-primary ring-4 ring-background" />
-                    
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-primary">{log.action}</span>
@@ -200,101 +213,7 @@ function UserDetailSheet({
   );
 }
 
-// --- Formulario Añadir ---
-function AddUserForm({ setOpen, setUsers }: { setOpen: (open: boolean) => void, setUsers: React.Dispatch<React.SetStateAction<User[]>> }) {
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: { name: "", ci: "", phone: "" },
-  });
-
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    try {
-      const newUser = await createUser(values);
-      if (newUser) {
-        setUsers((prev) => [newUser, ...prev]);
-        alert('¡Usuario creado correctamente!');
-        setOpen(false);
-        form.reset();
-      }
-    } catch (error: any) {
-      console.error(error);
-      alert(error.message || 'Error al guardar.');
-    }
-  }
-
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <DialogHeader>
-          <DialogTitle>Nuevo Usuario</DialogTitle>
-          <DialogDescription>Ingresa los datos del estudiante o personal.</DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-           <FormField control={form.control} name="name" render={({ field }) => (
-            <FormItem><FormLabel>Nombre Completo</FormLabel><FormControl><Input placeholder="Ej: Ana Torres" {...field} /></FormControl><FormMessage /></FormItem>
-          )} />
-          <div className="grid grid-cols-2 gap-4">
-            <FormField control={form.control} name="ci" render={({ field }) => (
-                <FormItem><FormLabel>CI</FormLabel><FormControl><Input placeholder="1234567" {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="phone" render={({ field }) => (
-                <FormItem><FormLabel>Celular</FormLabel><FormControl><Input placeholder="70123456" {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button type="submit">Registrar</Button>
-        </DialogFooter>
-      </form>
-    </Form>
-  );
-}
-
-// --- Formulario Editar ---
-function EditUserForm({ user, setOpen, setUsers }: { user: User, setOpen: (open: boolean) => void, setUsers: React.Dispatch<React.SetStateAction<User[]>> }) {
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: { name: user.name, ci: user.ci, phone: user.phone },
-  });
-
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    try {
-      const updatedUser = await updateUser({ ...user, ...values });
-      if (updatedUser) {
-        setUsers((prev) => prev.map(u => u.id === user.id ? updatedUser : u));
-        alert('¡Usuario actualizado!');
-        setOpen(false);
-      }
-    } catch (error: any) {
-      alert('Error al actualizar.');
-    }
-  }
-
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <DialogHeader><DialogTitle>Editar Usuario</DialogTitle></DialogHeader>
-        <div className="grid gap-4 py-4">
-           <FormField control={form.control} name="name" render={({ field }) => (
-            <FormItem><FormLabel>Nombre</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-          )} />
-           <div className="grid grid-cols-2 gap-4">
-             <FormField control={form.control} name="ci" render={({ field }) => (
-                <FormItem><FormLabel>CI</FormLabel><FormControl><Input {...field} disabled className="bg-muted" /></FormControl><FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="phone" render={({ field }) => (
-                <FormItem><FormLabel>Celular</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-           </div>
-        </div>
-        <DialogFooter><Button type="submit">Guardar Cambios</Button></DialogFooter>
-      </form>
-    </Form>
-  );
-}
-
-// --- Celda de Acciones ---
-// Componente interno para el diálogo de cambio de contraseña
+// --- Componente: Diálogo Reset Password ---
 function ResetPasswordDialog({ user, isOpen, onClose }: { user: User, isOpen: boolean, onClose: () => void }) {
     const [newPass, setNewPass] = React.useState("");
     
@@ -304,6 +223,7 @@ function ResetPasswordDialog({ user, isOpen, onClose }: { user: User, isOpen: bo
         if (success) {
             alert(`Contraseña de ${user.name} actualizada.`);
             onClose();
+            setNewPass("");
         } else {
             alert("Error al actualizar.");
         }
@@ -336,7 +256,126 @@ function ResetPasswordDialog({ user, isOpen, onClose }: { user: User, isOpen: bo
     );
 }
 
-// Componente de Acciones Actualizado
+// --- Formulario Añadir ---
+function AddUserForm({ setOpen, setUsers }: { setOpen: (open: boolean) => void, setUsers: React.Dispatch<React.SetStateAction<User[]>> }) {
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: { nombres: "", paterno: "", materno: "", ci_numero: "", ci_extension: "LP", phone: "" },
+  });
+
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    try {
+      const userData = { ...values, materno: values.materno || "" };
+      const newUser = await createUser(userData);
+      if (newUser) {
+        setUsers((prev) => [newUser, ...prev]);
+        alert('¡Usuario creado correctamente!');
+        setOpen(false);
+        form.reset();
+      }
+    } catch (error: any) {
+      console.error(error);
+      alert(error.message || 'Error al guardar.');
+    }
+  }
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <DialogHeader>
+          <DialogTitle>Nuevo Usuario</DialogTitle>
+          <DialogDescription>Registra manualmente a un estudiante o personal.</DialogDescription>
+        </DialogHeader>
+        
+        <div className="grid grid-cols-3 gap-4">
+            <FormField control={form.control} name="ci_numero" render={({ field }) => (
+                <FormItem className="col-span-2"><FormLabel>CI (Número)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <FormField control={form.control} name="ci_extension" render={({ field }) => (
+                <FormItem><FormLabel>Ext.</FormLabel>
+                 <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                    <SelectContent>{EXTENSIONES.map(ext => <SelectItem key={ext} value={ext}>{ext}</SelectItem>)}</SelectContent>
+                  </Select>
+                </FormItem>
+            )} />
+        </div>
+
+        <FormField control={form.control} name="nombres" render={({ field }) => (
+            <FormItem><FormLabel>Nombres</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+        )} />
+        
+        <div className="grid grid-cols-2 gap-4">
+            <FormField control={form.control} name="paterno" render={({ field }) => (
+                <FormItem><FormLabel>Ap. Paterno</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <FormField control={form.control} name="materno" render={({ field }) => (
+                <FormItem><FormLabel>Ap. Materno</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+        </div>
+
+        <FormField control={form.control} name="phone" render={({ field }) => (
+            <FormItem><FormLabel>Celular</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+        )} />
+
+        <DialogFooter>
+          <Button type="submit">Registrar Usuario</Button>
+        </DialogFooter>
+      </form>
+    </Form>
+  );
+}
+
+// --- Formulario Editar ---
+function EditUserForm({ user, setOpen, setUsers }: { user: User, setOpen: (open: boolean) => void, setUsers: React.Dispatch<React.SetStateAction<User[]>> }) {
+  // Nota: Para simplificar la edición, asumimos que se edita el nombre completo o el teléfono.
+  // Si quieres editar campos individuales, habría que cargar los datos desagregados.
+  const editSchema = z.object({
+      name: z.string().min(3, "Nombre requerido"),
+      phone: z.string().min(8, "Celular requerido")
+  });
+
+  const form = useForm<z.infer<typeof editSchema>>({
+    resolver: zodResolver(editSchema),
+    defaultValues: { name: user.name, phone: user.phone },
+  });
+
+  async function onSubmit(values: z.infer<typeof editSchema>) {
+    try {
+      const updatedUser = await updateUser({ ...user, ...values });
+      if (updatedUser) {
+        setUsers((prev) => prev.map(u => u.id === user.id ? updatedUser : u));
+        alert('¡Usuario actualizado!');
+        setOpen(false);
+      }
+    } catch (error: any) {
+      alert('Error al actualizar.');
+    }
+  }
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <DialogHeader><DialogTitle>Editar Usuario</DialogTitle></DialogHeader>
+        <div className="grid gap-4 py-4">
+           <FormField control={form.control} name="name" render={({ field }) => (
+            <FormItem><FormLabel>Nombre Completo</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+          )} />
+           <FormField control={form.control} name="phone" render={({ field }) => (
+            <FormItem><FormLabel>Celular</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+           )} />
+           <div className="space-y-2">
+               <Label>CI</Label>
+               <Input value={user.ci} disabled className="bg-muted" />
+           </div>
+        </div>
+        <DialogFooter><Button type="submit">Guardar Cambios</Button></DialogFooter>
+      </form>
+    </Form>
+  );
+}
+
+// --- Celda de Acciones ---
 const UserActionsCell = ({ 
   user, 
   setUsers, 
@@ -347,7 +386,7 @@ const UserActionsCell = ({
   onViewDetail: (user: User) => void 
 }) => {
    const [isEditOpen, setIsEditOpen] = React.useState(false);
-   const [isPassOpen, setIsPassOpen] = React.useState(false); // Nuevo estado
+   const [isPassOpen, setIsPassOpen] = React.useState(false);
    
    const handleToggleStatus = async () => {
       const newStatus = user.status === 'Abonado' ? 'No Abonado' : 'Abonado';
@@ -376,9 +415,8 @@ const UserActionsCell = ({
             <DropdownMenuItem onClick={() => setIsEditOpen(true)}>
                <Pencil className="mr-2 h-4 w-4"/> Editar Datos
             </DropdownMenuItem>
-            {/* NUEVA OPCIÓN */}
             <DropdownMenuItem onClick={() => setIsPassOpen(true)}>
-               <span className="flex items-center gap-2"><File className="w-4 h-4"/> Cambiar Contraseña</span>
+               <KeyRound className="mr-2 h-4 w-4"/> Restablecer Clave
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="text-red-600" onClick={handleDelete}>
@@ -390,8 +428,7 @@ const UserActionsCell = ({
         <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
            <DialogContent><EditUserForm user={user} setOpen={setIsEditOpen} setUsers={setUsers}/></DialogContent>
         </Dialog>
-        
-        {/* Diálogo de Password */}
+
         <ResetPasswordDialog user={user} isOpen={isPassOpen} onClose={() => setIsPassOpen(false)} />
      </div>
    )
@@ -479,11 +516,9 @@ export default function UsersPage() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [isAddOpen, setIsAddOpen] = React.useState(false);
   
-  // Estados para el detalle lateral
   const [selectedUser, setSelectedUser] = React.useState<User | null>(null);
   const [isDetailOpen, setIsDetailOpen] = React.useState(false);
 
-  // Filtro de estado
   const [statusFilter, setStatusFilter] = React.useState<string>('all');
 
   React.useEffect(() => {
@@ -496,7 +531,6 @@ export default function UsersPage() {
     load();
   }, []);
 
-  // Callback para abrir el detalle
   const handleViewDetail = React.useCallback((user: User) => {
     setSelectedUser(user);
     setIsDetailOpen(true);
@@ -517,7 +551,6 @@ export default function UsersPage() {
     state: { sorting, columnFilters, rowSelection },
   });
 
-  // Aplicar filtro de estado
   React.useEffect(() => {
      if (statusFilter === 'all') {
         table.getColumn('status')?.setFilterValue('');
@@ -530,7 +563,6 @@ export default function UsersPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-           {/* BUSCADOR */}
            <div className="relative w-64">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
@@ -540,7 +572,6 @@ export default function UsersPage() {
                 className="pl-8"
               />
            </div>
-           {/* FILTRO */}
            <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-[180px]">
                  <Filter className="mr-2 h-4 w-4" />
@@ -608,7 +639,6 @@ export default function UsersPage() {
          <Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>Siguiente</Button>
       </div>
 
-      {/* --- SHEET (PANEL LATERAL) --- */}
       <UserDetailSheet 
         user={selectedUser} 
         isOpen={isDetailOpen} 

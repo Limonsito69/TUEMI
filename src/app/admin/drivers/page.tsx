@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { MoreHorizontal, PlusCircle, Pencil, Trash } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Pencil, Trash, File, KeyRound } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -54,7 +54,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Driver } from '@/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { getDrivers, createDriver, updateDriver, deleteDriver } from '@/lib/actions';
+import { 
+  getDrivers, 
+  createDriver, 
+  updateDriver, 
+  deleteDriver, 
+  resetDriverPassword 
+} from '@/lib/actions';
 
 // --- Esquema de Validación ---
 const formSchema = z.object({
@@ -64,6 +70,45 @@ const formSchema = z.object({
   license: z.string().min(3, "Licencia requerida."),
   status: z.enum(["Activo", "Inactivo"]),
 });
+
+// --- Componente: Diálogo para Cambiar Contraseña ---
+function ResetDriverPasswordDialog({ driver, isOpen, onClose }: { driver: Driver, isOpen: boolean, onClose: () => void }) {
+    const [newPass, setNewPass] = React.useState("");
+    
+    const handleReset = async () => {
+        if (!newPass) return alert("Ingresa una contraseña");
+        const success = await resetDriverPassword(driver.id, newPass);
+        if (success) {
+            alert(`Clave de ${driver.name} actualizada.`);
+            setNewPass("");
+            onClose();
+        } else {
+            alert("Error al actualizar.");
+        }
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Asignar Contraseña</DialogTitle>
+                    <DialogDescription>Define la clave de acceso para {driver.name}.</DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                    <Input 
+                        value={newPass} 
+                        onChange={(e) => setNewPass(e.target.value)} 
+                        placeholder="Nueva contraseña" 
+                        type="text" // Visible para que el admin sepa qué clave está poniendo
+                    />
+                </div>
+                <DialogFooter>
+                    <Button onClick={handleReset}>Guardar Contraseña</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 // --- Componente: Formulario Añadir ---
 function AddDriverForm({ setOpen, setDrivers }: { setOpen: (open: boolean) => void, setDrivers: React.Dispatch<React.SetStateAction<Driver[]>> }) {
@@ -88,7 +133,7 @@ function AddDriverForm({ setOpen, setDrivers }: { setOpen: (open: boolean) => vo
       
       if (newDriver) {
         setDrivers((prev) => [newDriver, ...prev]);
-        alert('¡Conductor registrado!');
+        alert('¡Conductor registrado! La contraseña por defecto es 123456.');
         setOpen(false);
         form.reset();
       }
@@ -216,6 +261,7 @@ function EditDriverForm({ driver, setOpen, setDrivers }: { driver: Driver, setOp
 // --- Componente: Acciones ---
 const DriverActionsCell = ({ driver, setDrivers }: { driver: Driver, setDrivers: React.Dispatch<React.SetStateAction<Driver[]>> }) => {
   const [isEditOpen, setIsEditOpen] = React.useState(false);
+  const [isPassOpen, setIsPassOpen] = React.useState(false);
 
   const handleDelete = async () => {
     if (confirm(`¿Eliminar a ${driver.name}?`)) {
@@ -241,7 +287,10 @@ const DriverActionsCell = ({ driver, setDrivers }: { driver: Driver, setDrivers:
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>Acciones</DropdownMenuLabel>
           <DropdownMenuItem onClick={() => setIsEditOpen(true)}>
-            <Pencil className="mr-2 h-4 w-4" /> Editar
+            <Pencil className="mr-2 h-4 w-4" /> Editar Datos
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setIsPassOpen(true)}>
+            <KeyRound className="mr-2 h-4 w-4" /> Asignar Contraseña
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleDelete} className="text-red-600">
@@ -250,11 +299,15 @@ const DriverActionsCell = ({ driver, setDrivers }: { driver: Driver, setDrivers:
         </DropdownMenuContent>
       </DropdownMenu>
 
+      {/* Modal Editar */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <EditDriverForm driver={driver} setOpen={setIsEditOpen} setDrivers={setDrivers} />
         </DialogContent>
       </Dialog>
+
+      {/* Modal Contraseña */}
+      <ResetDriverPasswordDialog driver={driver} isOpen={isPassOpen} onClose={() => setIsPassOpen(false)} />
     </>
   );
 };
