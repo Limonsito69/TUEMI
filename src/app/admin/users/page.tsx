@@ -1,7 +1,18 @@
 'use client';
 
 import * as React from 'react';
-import { PlusCircle, File, Search, Filter, MoreHorizontal, Pencil, Trash } from 'lucide-react';
+import { 
+  PlusCircle, 
+  File, 
+  Search, 
+  Filter, 
+  MoreHorizontal, 
+  Pencil, 
+  Trash, 
+  Eye, 
+  History, 
+  User as UserIcon 
+} from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -51,7 +62,6 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuCheckboxItem,
 } from '@/components/ui/dropdown-menu';
 import {
   Form,
@@ -61,8 +71,16 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription
+} from '@/components/ui/sheet';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getUsers, createUser, updateUser, deleteUser } from '@/lib/actions';
+import { getUsers, createUser, updateUser, deleteUser, getUserAuditLogs, resetUserPassword, AuditLog } from '@/lib/actions';
 
 // --- Esquema de Validación ---
 const formSchema = z.object({
@@ -70,6 +88,117 @@ const formSchema = z.object({
   ci: z.string().min(5, "El CI debe tener al menos 5 caracteres."),
   phone: z.string().min(8, "El teléfono debe tener al menos 8 caracteres."),
 });
+
+// --- Componente: Panel Lateral de Detalle (Historial) ---
+function UserDetailSheet({ 
+  user, 
+  isOpen, 
+  onClose 
+}: { 
+  user: User | null, 
+  isOpen: boolean, 
+  onClose: () => void 
+}) {
+  const [logs, setLogs] = React.useState<AuditLog[]>([]);
+  const [loadingLogs, setLoadingLogs] = React.useState(false);
+
+  React.useEffect(() => {
+    if (user && isOpen) {
+      setLoadingLogs(true);
+      getUserAuditLogs(user.id)
+        .then(setLogs)
+        .finally(() => setLoadingLogs(false));
+    }
+  }, [user, isOpen]);
+
+  if (!user) return null;
+
+  const avatar = PlaceHolderImages.find((img) => img.id === user.avatar);
+
+  return (
+    <Sheet open={isOpen} onOpenChange={onClose}>
+      <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
+        <SheetHeader className="mb-6">
+          <SheetTitle>Perfil del Usuario</SheetTitle>
+          <SheetDescription>Detalles completos e historial de actividad.</SheetDescription>
+        </SheetHeader>
+
+        {/* --- CABECERA DEL PERFIL --- */}
+        <div className="flex flex-col items-center mb-8">
+          <Avatar className="h-24 w-24 mb-4 border-4 border-muted">
+            <AvatarImage src={avatar?.imageUrl} />
+            <AvatarFallback className="text-2xl">{user.name.charAt(0)}</AvatarFallback>
+          </Avatar>
+          <h2 className="text-2xl font-bold text-center">{user.name}</h2>
+          <Badge className="mt-2" variant={user.status === 'Abonado' ? 'default' : 'secondary'}>
+            {user.status}
+          </Badge>
+        </div>
+
+        {/* --- DATOS PERSONALES --- */}
+        <div className="space-y-4 mb-8">
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+            <UserIcon className="w-4 h-4" /> Datos Personales
+          </h3>
+          <div className="grid grid-cols-2 gap-4 p-4 bg-secondary/20 rounded-lg border">
+            <div>
+              <p className="text-xs text-muted-foreground">Cédula de Identidad</p>
+              <p className="font-medium">{user.ci}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Teléfono</p>
+              <p className="font-medium">{user.phone}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Rol</p>
+              <p className="font-medium">Estudiante</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">ID Sistema</p>
+              <p className="font-medium font-mono text-xs">{user.id}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* --- HISTORIAL (TIMELINE) --- */}
+        <div className="space-y-4">
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+            <History className="w-4 h-4" /> Historial de Cambios
+          </h3>
+          
+          <ScrollArea className="h-[300px] w-full rounded-md border p-4">
+            {loadingLogs ? (
+              <p className="text-center text-sm text-muted-foreground py-4">Cargando historial...</p>
+            ) : logs.length === 0 ? (
+              <p className="text-center text-sm text-muted-foreground py-4">No hay registros de actividad.</p>
+            ) : (
+              <div className="space-y-6">
+                {logs.map((log) => (
+                  <div key={log.id} className="relative pl-6 border-l-2 border-muted pb-1 last:pb-0">
+                    {/* Punto en la línea de tiempo */}
+                    <div className="absolute -left-[5px] top-1 h-2.5 w-2.5 rounded-full bg-primary ring-4 ring-background" />
+                    
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-primary">{log.action}</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {new Date(log.timestamp).toLocaleString()}
+                        </span>
+                      </div>
+                      <p className="text-sm">{log.details}</p>
+                      <p className="text-[10px] text-muted-foreground">Por: {log.adminName}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </div>
+
+      </SheetContent>
+    </Sheet>
+  );
+}
 
 // --- Formulario Añadir ---
 function AddUserForm({ setOpen, setUsers }: { setOpen: (open: boolean) => void, setUsers: React.Dispatch<React.SetStateAction<User[]>> }) {
@@ -164,8 +293,115 @@ function EditUserForm({ user, setOpen, setUsers }: { user: User, setOpen: (open:
   );
 }
 
+// --- Celda de Acciones ---
+// Componente interno para el diálogo de cambio de contraseña
+function ResetPasswordDialog({ user, isOpen, onClose }: { user: User, isOpen: boolean, onClose: () => void }) {
+    const [newPass, setNewPass] = React.useState("");
+    
+    const handleReset = async () => {
+        if (!newPass) return alert("Ingresa una contraseña");
+        const success = await resetUserPassword(user.id, newPass);
+        if (success) {
+            alert(`Contraseña de ${user.name} actualizada.`);
+            onClose();
+        } else {
+            alert("Error al actualizar.");
+        }
+    };
+
+    const generatePass = () => {
+        const pass = Math.random().toString(36).slice(-8);
+        setNewPass(pass);
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Restablecer Contraseña</DialogTitle>
+                    <DialogDescription>Define una nueva contraseña para {user.name}.</DialogDescription>
+                </DialogHeader>
+                <div className="flex gap-2 items-end py-4">
+                    <div className="grid w-full gap-1.5">
+                        <Label>Nueva Contraseña</Label>
+                        <Input value={newPass} onChange={(e) => setNewPass(e.target.value)} placeholder="Escribe la nueva clave" />
+                    </div>
+                    <Button variant="outline" onClick={generatePass}>Generar</Button>
+                </div>
+                <DialogFooter>
+                    <Button onClick={handleReset}>Guardar Contraseña</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+// Componente de Acciones Actualizado
+const UserActionsCell = ({ 
+  user, 
+  setUsers, 
+  onViewDetail 
+}: { 
+  user: User, 
+  setUsers: React.Dispatch<React.SetStateAction<User[]>>, 
+  onViewDetail: (user: User) => void 
+}) => {
+   const [isEditOpen, setIsEditOpen] = React.useState(false);
+   const [isPassOpen, setIsPassOpen] = React.useState(false); // Nuevo estado
+   
+   const handleToggleStatus = async () => {
+      const newStatus = user.status === 'Abonado' ? 'No Abonado' : 'Abonado';
+      const updated = await updateUser({ ...user, status: newStatus });
+      if (updated) setUsers(prev => prev.map(u => u.id === user.id ? updated : u));
+   };
+
+   const handleDelete = async () => {
+      if (confirm(`¿Eliminar a ${user.name}?`)) {
+         await deleteUser(user.id);
+         setUsers(prev => prev.filter(u => u.id !== user.id));
+      }
+   }
+
+   return (
+     <div className="flex items-center gap-2">
+        <Switch checked={user.status === 'Abonado'} onCheckedChange={handleToggleStatus} />
+        
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Opciones</DropdownMenuLabel>
+            <DropdownMenuItem onClick={() => onViewDetail(user)}>
+               <Eye className="mr-2 h-4 w-4"/> Ver Perfil Completo
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setIsEditOpen(true)}>
+               <Pencil className="mr-2 h-4 w-4"/> Editar Datos
+            </DropdownMenuItem>
+            {/* NUEVA OPCIÓN */}
+            <DropdownMenuItem onClick={() => setIsPassOpen(true)}>
+               <span className="flex items-center gap-2"><File className="w-4 h-4"/> Cambiar Contraseña</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="text-red-600" onClick={handleDelete}>
+               <Trash className="mr-2 h-4 w-4"/> Eliminar
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+           <DialogContent><EditUserForm user={user} setOpen={setIsEditOpen} setUsers={setUsers}/></DialogContent>
+        </Dialog>
+        
+        {/* Diálogo de Password */}
+        <ResetPasswordDialog user={user} isOpen={isPassOpen} onClose={() => setIsPassOpen(false)} />
+     </div>
+   )
+}
+
 // --- Definición de Columnas ---
-const getColumns = (setUsers: React.Dispatch<React.SetStateAction<User[]>>): ColumnDef<User>[] => [
+const getColumns = (
+  setUsers: React.Dispatch<React.SetStateAction<User[]>>,
+  onViewDetail: (user: User) => void
+): ColumnDef<User>[] => [
   {
     id: "select",
     header: ({ table }) => (
@@ -224,43 +460,13 @@ const getColumns = (setUsers: React.Dispatch<React.SetStateAction<User[]>>): Col
   },
   {
     id: 'actions',
-    cell: ({ row }) => {
-       const user = row.original;
-       const [isEditOpen, setIsEditOpen] = React.useState(false);
-       
-       const handleToggleStatus = async () => {
-          const newStatus = user.status === 'Abonado' ? 'No Abonado' : 'Abonado';
-          const updated = await updateUser({ ...user, status: newStatus });
-          if (updated) setUsers(prev => prev.map(u => u.id === user.id ? updated : u));
-       };
-
-       const handleDelete = async () => {
-          if (confirm(`¿Eliminar a ${user.name}?`)) {
-             await deleteUser(user.id);
-             setUsers(prev => prev.filter(u => u.id !== user.id));
-          }
-       }
-
-       return (
-         <div className="flex items-center gap-2">
-            <Switch checked={user.status === 'Abonado'} onCheckedChange={handleToggleStatus} />
-            
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Opciones</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => setIsEditOpen(true)}><Pencil className="mr-2 h-4 w-4"/> Editar Datos</DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-red-600" onClick={handleDelete}><Trash className="mr-2 h-4 w-4"/> Eliminar</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-               <DialogContent><EditUserForm user={user} setOpen={setIsEditOpen} setUsers={setUsers}/></DialogContent>
-            </Dialog>
-         </div>
-       )
-    }
+    cell: ({ row }) => (
+      <UserActionsCell 
+         user={row.original} 
+         setUsers={setUsers} 
+         onViewDetail={onViewDetail} 
+      />
+    )
   },
 ];
 
@@ -272,8 +478,12 @@ export default function UsersPage() {
   const [users, setUsers] = React.useState<User[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isAddOpen, setIsAddOpen] = React.useState(false);
+  
+  // Estados para el detalle lateral
+  const [selectedUser, setSelectedUser] = React.useState<User | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = React.useState(false);
 
-  // Estado para el filtro de "Tipo" (Abonado/No Abonado)
+  // Filtro de estado
   const [statusFilter, setStatusFilter] = React.useState<string>('all');
 
   React.useEffect(() => {
@@ -286,7 +496,13 @@ export default function UsersPage() {
     load();
   }, []);
 
-  const columns = React.useMemo(() => getColumns(setUsers), [setUsers]);
+  // Callback para abrir el detalle
+  const handleViewDetail = React.useCallback((user: User) => {
+    setSelectedUser(user);
+    setIsDetailOpen(true);
+  }, []);
+
+  const columns = React.useMemo(() => getColumns(setUsers, handleViewDetail), [setUsers, handleViewDetail]);
 
   const table = useReactTable({
     data: users,
@@ -301,7 +517,7 @@ export default function UsersPage() {
     state: { sorting, columnFilters, rowSelection },
   });
 
-  // Efecto para aplicar el filtro de estado manualmente a la columna 'status'
+  // Aplicar filtro de estado
   React.useEffect(() => {
      if (statusFilter === 'all') {
         table.getColumn('status')?.setFilterValue('');
@@ -324,7 +540,7 @@ export default function UsersPage() {
                 className="pl-8"
               />
            </div>
-           {/* FILTRO POR TIPO */}
+           {/* FILTRO */}
            <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-[180px]">
                  <Filter className="mr-2 h-4 w-4" />
@@ -391,6 +607,13 @@ export default function UsersPage() {
          <Button variant="outline" size="sm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>Anterior</Button>
          <Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>Siguiente</Button>
       </div>
+
+      {/* --- SHEET (PANEL LATERAL) --- */}
+      <UserDetailSheet 
+        user={selectedUser} 
+        isOpen={isDetailOpen} 
+        onClose={() => setIsDetailOpen(false)} 
+      />
     </div>
   );
 }

@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -13,29 +12,51 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { mockUsers } from '@/lib/data';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { QrCode } from 'lucide-react';
+import { QrCode, RefreshCw, LogOut } from 'lucide-react';
 import type { User } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { getUserProfile } from '@/lib/actions';
+import { useRouter } from 'next/navigation';
 
 export default function StudentProfilePage() {
   const [student, setStudent] = React.useState<User | null>(null);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const router = useRouter();
 
-  React.useEffect(() => {
-    // Intentamos obtener el usuario recién registrado desde sessionStorage
-    const registeredUserJson = sessionStorage.getItem('registeredUser');
-    if (registeredUserJson) {
-      setStudent(JSON.parse(registeredUserJson));
-    } else {
-      // Si no, usamos el usuario de ejemplo
-      setStudent(mockUsers[0]);
+  // Función para cargar datos
+  const loadProfile = React.useCallback(async () => {
+    // 1. Obtener ID de la sesión
+    const storedUser = sessionStorage.getItem('loggedInUser');
+    if (!storedUser) {
+        setIsLoading(false);
+        return;
+    }
+
+    try {
+        const sessionData = JSON.parse(storedUser);
+        if (sessionData.id) {
+            // 2. Pedir datos frescos a la BD
+            const dbUser = await getUserProfile(sessionData.id);
+            setStudent(dbUser);
+        }
+    } catch (error) {
+        console.error("Error cargando perfil", error);
+    } finally {
+        setIsLoading(false);
     }
   }, []);
 
-  const avatar = PlaceHolderImages.find((img) => img.id === student?.avatar);
+  React.useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
 
-  if (!student) {
+  const handleLogout = () => {
+    sessionStorage.removeItem('loggedInUser');
+    router.push('/');
+  };
+
+  if (isLoading) {
     return (
         <div className="grid gap-6">
             <Card>
@@ -50,56 +71,108 @@ export default function StudentProfilePage() {
                     <Skeleton className="h-10 w-40" />
                 </CardContent>
             </Card>
-            <Card>
-                <CardHeader>
-                    <Skeleton className="h-6 w-1/2"/>
-                    <Skeleton className="h-4 w-3/4"/>
-                </CardHeader>
-                <CardContent>
-                     <Skeleton className="h-8 w-full"/>
-                </CardContent>
-            </Card>
         </div>
     )
   }
 
+  if (!student) {
+      return (
+        <div className="flex flex-col items-center justify-center h-[50vh] gap-4">
+            <p className="text-muted-foreground">No se encontró información del usuario.</p>
+            <Button onClick={() => router.push('/')}>Volver al Inicio</Button>
+        </div>
+      );
+  }
+
+  const avatar = PlaceHolderImages.find((img) => img.id === student?.avatar);
+  
+  // Simulación de progreso de abono (en un sistema real, esto vendría de una tabla de Pagos/Suscripciones)
+  const tripsLeft = student.status === 'Abonado' ? 12 : 0;
+  const totalTrips = 20;
+  const progressValue = student.status === 'Abonado' ? (tripsLeft / totalTrips) * 100 : 0;
+
   return (
-    <div className="grid gap-6">
-      <Card>
-        <CardHeader className="flex flex-row items-center gap-4">
-          <Avatar className="h-20 w-20">
-            <AvatarImage src={avatar?.imageUrl} />
-            <AvatarFallback>{student.name.charAt(0)}</AvatarFallback>
-          </Avatar>
-          <div className="grid gap-1">
-            <CardTitle className="text-2xl">{student.name}</CardTitle>
-            <CardDescription>{student.ci}</CardDescription>
-            <div className="flex items-center gap-2 pt-2">
-                <Badge variant={student.status === 'Abonado' ? 'default' : 'secondary'}>
-                    {student.status}
-                </Badge>
-                <p className="text-sm text-muted-foreground">{student.phone}</p>
+    <div className="grid gap-6 max-w-2xl mx-auto">
+      {/* TARJETA DE IDENTIFICACIÓN */}
+      <Card className="overflow-hidden border-primary/20 shadow-md">
+        <div className="h-24 bg-gradient-to-r from-primary to-blue-600 relative">
+            <div className="absolute -bottom-10 left-6 p-1 bg-background rounded-full">
+                <Avatar className="h-20 w-20 border-2 border-background">
+                    <AvatarImage src={avatar?.imageUrl} />
+                    <AvatarFallback className="text-xl bg-primary/10 text-primary">{student.name.charAt(0)}</AvatarFallback>
+                </Avatar>
             </div>
+        </div>
+        <CardHeader className="pt-12 pb-2">
+          <div className="flex justify-between items-start">
+             <div>
+                <CardTitle className="text-2xl font-bold">{student.name}</CardTitle>
+                <CardDescription className="text-base font-mono mt-1">{student.ci}</CardDescription>
+             </div>
+             <Badge 
+                className="text-sm px-3 py-1" 
+                variant={student.status === 'Abonado' ? 'default' : 'secondary'}
+             >
+                {student.status}
+             </Badge>
           </div>
         </CardHeader>
-        <CardContent>
-            <Button>
-                <QrCode className="mr-2 h-4 w-4"/>
-                Mostrar Código QR
-            </Button>
+        <CardContent className="grid gap-4">
+            <div className="grid grid-cols-2 gap-4 text-sm mt-2">
+                <div>
+                    <p className="text-muted-foreground">Teléfono</p>
+                    <p className="font-medium">{student.phone}</p>
+                </div>
+                <div>
+                    <p className="text-muted-foreground">Carrera</p>
+                    <p className="font-medium">Ingeniería de Sistemas</p> 
+                    {/* Dato estático por ahora, se podría añadir a la tabla Users */}
+                </div>
+            </div>
+
+            <div className="flex gap-3 mt-4">
+                <Button className="flex-1 gap-2" disabled={student.status !== 'Abonado'}>
+                    <QrCode className="h-4 w-4"/>
+                    {student.status === 'Abonado' ? 'Ver Código QR' : 'Sin Abono Activo'}
+                </Button>
+                <Button variant="outline" size="icon" onClick={loadProfile} title="Actualizar datos">
+                    <RefreshCw className="h-4 w-4"/>
+                </Button>
+                <Button variant="destructive" size="icon" onClick={handleLogout} title="Cerrar Sesión">
+                    <LogOut className="h-4 w-4"/>
+                </Button>
+            </div>
         </CardContent>
       </Card>
       
+      {/* ESTADO DEL ABONO */}
       <Card>
         <CardHeader>
-            <CardTitle>Progreso del Abono</CardTitle>
-            <CardDescription>Viajes restantes en tu plan actual.</CardDescription>
+            <CardTitle>Estado de tu Abono</CardTitle>
+            <CardDescription>
+                {student.status === 'Abonado' 
+                    ? 'Tienes viajes disponibles para este mes.' 
+                    : 'No tienes un abono activo actualmente.'}
+            </CardDescription>
         </CardHeader>
         <CardContent>
-            <div className="space-y-2">
-                <Progress value={60} aria-label="60% de viajes utilizados"/>
-                <p className="text-sm text-muted-foreground">Te quedan <span className="font-bold text-foreground">8</span> de 20 viajes este mes.</p>
-            </div>
+            {student.status === 'Abonado' ? (
+                <div className="space-y-4">
+                    <div className="flex justify-between text-sm mb-2">
+                        <span>Viajes restantes</span>
+                        <span className="font-bold">{tripsLeft} / {totalTrips}</span>
+                    </div>
+                    <Progress value={progressValue} className="h-3" />
+                    <p className="text-xs text-muted-foreground pt-2">
+                        Tu abono es válido hasta el 30 de Noviembre.
+                    </p>
+                </div>
+            ) : (
+                <div className="text-center py-4 bg-secondary/20 rounded-lg border border-dashed">
+                    <p className="text-muted-foreground mb-2">Acércate a caja para renovar tu suscripción.</p>
+                    <Button variant="link" className="text-primary h-auto p-0">Ver puntos de pago</Button>
+                </div>
+            )}
         </CardContent>
       </Card>
     </div>

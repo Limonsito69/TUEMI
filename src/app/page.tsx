@@ -1,32 +1,40 @@
-'use client';
+"use client";
 
-import * as React from 'react';
-import { useRouter } from 'next/navigation';
-import Image from 'next/image';
-import { Button } from '@/components/ui/button';
+import * as React from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Logo } from '@/components/logo';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { authenticate, registerStudent } from '@/lib/actions'; // <-- Importamos las acciones
+} from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Logo } from "@/components/logo";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { authenticate, registerStudent } from "@/lib/actions"; // <-- Importamos las acciones
 
-type Role = 'admin' | 'driver' | 'student';
+type Role = "admin" | "driver" | "student";
 
 // Esquema para Login (Solo CI)
 const loginFormSchema = z.object({
   ci: z.string().min(3, "Ingresa tu CI o credencial."),
+  password: z.string().min(1, "Ingresa tu contraseña."), // <--- ESTO FALTABA
 });
 
 // Esquema para Registro
@@ -38,31 +46,29 @@ const registerFormSchema = z.object({
 
 function LoginForm() {
   const router = useRouter();
-  const [role, setRole] = React.useState<Role>('admin');
+  const [role, setRole] = React.useState<Role>('admin'); // El estado 'role' está aquí
   const [isLoading, setIsLoading] = React.useState(false);
 
   const form = useForm<z.infer<typeof loginFormSchema>>({
     resolver: zodResolver(loginFormSchema),
-    defaultValues: { ci: "" },
+    defaultValues: { ci: "", password: "" },
   });
 
   async function onSubmit(values: z.infer<typeof loginFormSchema>) {
     setIsLoading(true);
     
     try {
-      // Llamada al servidor para verificar credenciales
-      const result = await authenticate(values.ci, role);
+      // Enviamos CI, Password y Rol al backend
+      const result = await authenticate(values.ci, values.password, role);
 
       if (result.success && result.user) {
-        // Guardamos la sesión en el navegador
         if (typeof window !== 'undefined') {
           sessionStorage.setItem('loggedInUser', JSON.stringify({ 
             role: result.role, 
-            ...result.user // Guardamos todos los datos (ID, nombre, etc.)
+            ...result.user 
           }));
         }
 
-        // Redirección según rol
         switch (role) {
           case 'admin': router.push('/admin'); break;
           case 'driver': router.push('/driver'); break;
@@ -81,6 +87,7 @@ function LoginForm() {
 
   return (
     <div className="grid gap-4">
+      {/* Selector de Rol */}
       <RadioGroup defaultValue="admin" className="grid grid-cols-1 gap-4" value={role} onValueChange={(v) => setRole(v as Role)}>
         <div>
           <RadioGroupItem value="admin" id="admin" className="peer sr-only" />
@@ -102,15 +109,28 @@ function LoginForm() {
         </div>
       </RadioGroup>
 
+      {/* Formulario de Login */}
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          
+          {/* Campo CI */}
           <FormField control={form.control} name="ci" render={({ field }) => (
             <FormItem>
-              <FormLabel>{role === 'admin' ? 'Clave de Acceso' : 'Cédula de Identidad'}</FormLabel>
-              <FormControl><Input placeholder={role === 'admin' ? 'admin123' : 'Ej: 1234567 LP'} {...field} /></FormControl>
+              <FormLabel>{role === 'admin' ? 'Usuario' : 'Cédula de Identidad'}</FormLabel>
+              <FormControl><Input placeholder={role === 'admin' ? 'admin' : 'Ej: 1234567 LP'} {...field} /></FormControl>
               <FormMessage />
             </FormItem>
           )} />
+          
+          {/* Campo Password (NUEVO) */}
+          <FormField control={form.control} name="password" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Contraseña</FormLabel>
+              <FormControl><Input type="password" placeholder="******" {...field} /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
+
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? 'Verificando...' : 'Ingresar'}
           </Button>
@@ -135,7 +155,6 @@ function RegisterForm() {
       const result = await registerStudent(values);
 
       if (result.success && result.user) {
-        // Auto-login al registrarse
         if (typeof window !== 'undefined') {
           sessionStorage.setItem('loggedInUser', JSON.stringify({ 
             role: 'student', 

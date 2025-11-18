@@ -526,39 +526,42 @@ export async function updateTripLocation(tripId: number, lat: number, lng: numbe
   }
 }
 
-export async function authenticate(ci: string, role: 'student' | 'driver' | 'admin') {
+export async function authenticate(ci: string, password: string = '123456', role: 'student' | 'driver' | 'admin') {
   try {
     const pool = await getDbPool();
     
     if (role === 'driver') {
-      // Buscar en tabla Drivers
       const result = await pool.request()
         .input('ci', sql.NVarChar, ci)
         .query("SELECT * FROM Drivers WHERE ci = @ci");
         
       if (result.recordset.length > 0) {
-        // Retornamos el conductor encontrado
-        const driver = result.recordset[0] as Driver;
-        // Verificamos que esté activo (opcional)
+        const driver = result.recordset[0] as Driver & { password?: string };
+        // Verificación simple de contraseña (en producción usar bcrypt)
+        if (driver.password !== password) {
+             return { success: false, message: 'Contraseña incorrecta.' };
+        }
         if (driver.status === 'Inactivo') return { success: false, message: 'Conductor inactivo.' };
         return { success: true, user: driver, role: 'driver' };
       }
     } 
     else if (role === 'student') {
-      // Buscar en tabla Users
       const result = await pool.request()
         .input('ci', sql.NVarChar, ci)
         .query("SELECT * FROM Users WHERE ci = @ci");
         
       if (result.recordset.length > 0) {
-        return { success: true, user: result.recordset[0] as User, role: 'student' };
+        const user = result.recordset[0] as User & { password?: string };
+        // Verificación simple
+        if (user.password !== password) {
+             return { success: false, message: 'Contraseña incorrecta.' };
+        }
+        return { success: true, user: user, role: 'student' };
       }
     }
     else if (role === 'admin') {
-      // Para ADMIN, por simplicidad en esta demo, usaremos un CI "maestro"
-      // o podrías buscar en una tabla de Admins si la tuvieras.
-      if (ci === 'admin123') {
-         return { success: true, user: { name: 'Administrador' }, role: 'admin' };
+      if (ci === 'admin' && password === 'admin123') {
+         return { success: true, user: { name: 'Administrador', id: 0 }, role: 'admin' };
       }
     }
 
@@ -621,5 +624,134 @@ async function logAudit(adminName: string, targetUserId: number, action: string,
   } catch (error) {
     console.error("Error guardando log de auditoría:", error);
     // No lanzamos error para no interrumpir la acción principal
+  }
+}
+
+export type AuditLog = {
+  id: number;
+  adminName: string;
+  action: string;
+  details: string;
+  timestamp: Date;
+};
+
+export async function getUserAuditLogs(userId: number): Promise<AuditLog[]> {
+  try {
+    const pool = await getDbPool();
+    const result = await pool.request()
+      .input('targetUserId', sql.Int, userId)
+      .query('SELECT * FROM AuditLogs WHERE targetUserId = @targetUserId ORDER BY timestamp DESC');
+    
+    return result.recordset as AuditLog[];
+  } catch (error) {
+    console.error('Error al obtener logs:', error);
+    return [];
+  }
+}
+
+export type DashboardStats = {
+  totalUsers: number;
+  abonados: number;
+  noAbonados: number;
+  activeVehicles: number;
+  maintenanceVehicles: number;
+  totalTrips: number;
+  tripsByDriver: { name: string; trips: number }[];
+};
+
+/**
+ * Obtiene estadísticas generales del sistema para el dashboard.
+ */
+export async function getSystemStats(): Promise<DashboardStats> {
+  try {
+    const pool = await getDbPool();
+
+    // 1. Usuarios
+    const usersResult = await pool.request().query(`
+      SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN status = 'Abonado' THEN 1 ELSE 0 END) as abonados,
+        SUM(CASE WHEN status = 'No Abonado' THEN 1 ELSE 0 END) as noAbonados
+      FROM Users
+    `);
+    const userStats = usersResult.recordset[0];
+
+    // 2. Vehículos
+    const vehiclesResult = await pool.request().query(`
+      SELECT 
+        SUM(CASE WHEN status = 'Activo' THEN 1 ELSE 0 END) as active,
+        SUM(CASE WHEN status = 'En mantenimiento' THEN 1 ELSE 0 END) as maintenance
+      FROM Vehicles
+    `);
+    const vehicleStats = vehiclesResult.recordset[0];
+
+    // 3. Viajes totales
+    const tripsResult = await pool.request().query('SELECT COUNT(*) as total FROM Trips');
+    
+    // 4. Viajes por Conductor (Top 5)
+    const tripsByDriverResult = await pool.request().query(`
+      SELECT TOP 5 d.name, COUNT(t.id) as trips
+      FROM Trips t
+      JOIN Drivers d ON t.driverId = d.id
+      GROUP BY d.name
+      ORDER BY trips DESC
+    `);
+
+    return {
+      totalUsers: userStats.total || 0,
+      abonados: userStats.abonados || 0,
+      noAbonados: userStats.noAbonados || 0,
+      activeVehicles: vehicleStats.active || 0,
+      maintenanceVehicles: vehicleStats.maintenance || 0,
+      totalTrips: tripsResult.recordset[0].total || 0,
+      tripsByDriver: tripsByDriverResult.recordset as { name: string; trips: number }[],
+    };
+
+  } catch (error) {
+    console.error('Error obteniendo estadísticas:', error);
+    return {
+      totalUsers: 0,
+      abonados: 0,
+      noAbonados: 0,
+      activeVehicles: 0,
+      maintenanceVehicles: 0,
+      totalTrips: 0,
+      tripsByDriver: [],
+    };
+  }
+}
+
+export async function resetUserPassword(userId: number, newPassword: string): Promise<boolean> {
+  try {
+    const pool = await getDbPool();
+    await pool.request()
+      .input('id', sql.Int, userId)
+      .input('password', sql.NVarChar, newPassword)
+      .query("UPDATE Users SET password = @password WHERE id = @id");
+      
+    // Registrar en auditoría
+    await logAudit('Admin', userId, 'PASSWORD_RESET', 'Se restableció la contraseña manualmente.');
+    
+    return true;
+  } catch (error) {
+    console.error('Error al restablecer contraseña:', error);
+    return false;
+  }
+}
+
+export async function getUserProfile(userId: number): Promise<User | null> {
+  try {
+    const pool = await getDbPool();
+    const result = await pool.request()
+      .input('id', sql.Int, userId)
+      .query('SELECT * FROM Users WHERE id = @id');
+    
+    if (result.recordset.length > 0) {
+      return result.recordset[0] as User;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error al obtener perfil:', error);
+    return null;
   }
 }
