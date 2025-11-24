@@ -91,11 +91,15 @@ import {
   AuditLog 
 } from '@/lib/actions';
 
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
+
 // --- Constantes y Esquemas ---
 
 const EXTENSIONES = ["LP", "SC", "CB", "OR", "PT", "TJ", "CH", "BE", "PD"];
 
 const formSchema = z.object({
+  codigo_SAGA: z.string().min(2, "SAGA requerido"),
   nombres: z.string().min(2, "Nombre requerido"),
   paterno: z.string().min(2, "Ap. Paterno requerido"),
   materno: z.string().optional(),
@@ -105,6 +109,7 @@ const formSchema = z.object({
 });
 
 // --- Componente: Panel Lateral de Detalle (Historial) ---
+// --- Componente: Panel Lateral de Detalle (Historial) Actualizado ---
 function UserDetailSheet({ 
   user, 
   isOpen, 
@@ -129,6 +134,7 @@ function UserDetailSheet({
   if (!user) return null;
 
   const avatar = PlaceHolderImages.find((img) => img.id === user.avatar);
+  const isActivo = user.status === 'Abonado';
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
@@ -145,12 +151,17 @@ function UserDetailSheet({
             <AvatarFallback className="text-2xl">{user.name.charAt(0)}</AvatarFallback>
           </Avatar>
           <h2 className="text-2xl font-bold text-center">{user.name}</h2>
-          <Badge className="mt-2" variant={user.status === 'Abonado' ? 'default' : 'secondary'}>
-            {user.status}
+          
+          {/* Badge traducido visualmente: BD dice "Abonado", aquí mostramos "Activo" */}
+          <Badge 
+            className="mt-2" 
+            variant={isActivo ? 'default' : 'secondary'}
+          >
+            {isActivo ? 'Activo' : 'Desactivado'}
           </Badge>
         </div>
 
-        {/* DATOS */}
+        {/* DATOS PERSONALES (Con Código SAGA) */}
         <div className="space-y-4 mb-8">
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
             <UserIcon className="w-4 h-4" /> Datos Personales
@@ -158,24 +169,30 @@ function UserDetailSheet({
           <div className="grid grid-cols-2 gap-4 p-4 bg-secondary/20 rounded-lg border">
             <div>
               <p className="text-xs text-muted-foreground">Cédula de Identidad</p>
-              <p className="font-medium">{user.ci}</p>
+              <p className="font-medium font-mono">{user.ci}</p>
             </div>
+            
+            {/* ID Sistema eliminado, reemplazado por Código SAGA */}
+            <div>
+              <p className="text-xs text-muted-foreground">Código SAGA</p>
+              <p className="font-medium font-mono text-primary">
+                {user.codigo_SAGA || "No registrado"}
+              </p>
+            </div>
+
             <div>
               <p className="text-xs text-muted-foreground">Teléfono</p>
               <p className="font-medium">{user.phone}</p>
             </div>
+            
             <div>
               <p className="text-xs text-muted-foreground">Rol</p>
               <p className="font-medium">Estudiante</p>
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground">ID Sistema</p>
-              <p className="font-medium font-mono text-xs">{user.id}</p>
-            </div>
           </div>
         </div>
 
-        {/* HISTORIAL */}
+        {/* HISTORIAL (Con traducción de textos) */}
         <div className="space-y-4">
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
             <History className="w-4 h-4" /> Historial de Cambios
@@ -193,12 +210,23 @@ function UserDetailSheet({
                     <div className="absolute -left-[5px] top-1 h-2.5 w-2.5 rounded-full bg-primary ring-4 ring-background" />
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-primary">{log.action}</span>
+                        {/* Reemplazamos guiones bajos: CAMBIO_ESTADO -> CAMBIO ESTADO */}
+                        <span className="text-xs font-bold text-primary">
+                            {log.action.replace('_', ' ')}
+                        </span>
                         <span className="text-[10px] text-muted-foreground">
                           {new Date(log.timestamp).toLocaleString()}
                         </span>
                       </div>
-                      <p className="text-sm">{log.details}</p>
+                      
+                      {/* Traducción visual del contenido del log */}
+                      <p className="text-sm">
+                        {log.details
+                            .replace(/No Abonado/g, "Desactivado")
+                            .replace(/Abonado/g, "Activo")
+                        }
+                      </p>
+                      
                       <p className="text-[10px] text-muted-foreground">Por: {log.adminName}</p>
                     </div>
                   </div>
@@ -260,7 +288,7 @@ function ResetPasswordDialog({ user, isOpen, onClose }: { user: User, isOpen: bo
 function AddUserForm({ setOpen, setUsers }: { setOpen: (open: boolean) => void, setUsers: React.Dispatch<React.SetStateAction<User[]>> }) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { nombres: "", paterno: "", materno: "", ci_numero: "", ci_extension: "LP", phone: "" },
+    defaultValues: { nombres: "", paterno: "", materno: "", ci_numero: "", codigo_SAGA: "", ci_extension: "LP", phone: "" },
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
@@ -287,6 +315,23 @@ function AddUserForm({ setOpen, setUsers }: { setOpen: (open: boolean) => void, 
           <DialogDescription>Registra manualmente a un estudiante o personal.</DialogDescription>
         </DialogHeader>
         
+        <div className="grid grid-cols-3 gap-4">
+            <FormField
+                control={form.control}
+                name="codigo_SAGA"
+                render={({ field }) => (
+                    <FormItem className="col-span-3">
+                        <FormLabel>Código SAGA</FormLabel>
+                        <FormControl>
+                            <Input type="text" {...field} placeholder="Ej: A27123-4" />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )}
+            />
+        </div>
+
+
         <div className="grid grid-cols-3 gap-4">
             <FormField control={form.control} name="ci_numero" render={({ field }) => (
                 <FormItem className="col-span-2"><FormLabel>CI (Número)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
@@ -327,49 +372,88 @@ function AddUserForm({ setOpen, setUsers }: { setOpen: (open: boolean) => void, 
 }
 
 // --- Formulario Editar ---
+// --- Formulario Editar (Actualizado para Admin) ---
 function EditUserForm({ user, setOpen, setUsers }: { user: User, setOpen: (open: boolean) => void, setUsers: React.Dispatch<React.SetStateAction<User[]>> }) {
-  // Nota: Para simplificar la edición, asumimos que se edita el nombre completo o el teléfono.
-  // Si quieres editar campos individuales, habría que cargar los datos desagregados.
+  
+  // 1. Actualizamos el esquema para validar también CI y SAGA
   const editSchema = z.object({
       name: z.string().min(3, "Nombre requerido"),
-      phone: z.string().min(8, "Celular requerido")
+      phone: z.string().min(8, "Celular requerido"),
+      ci: z.string().min(5, "CI requerido"), // Ahora es editable
+      codigo_SAGA: z.string().min(2, "SAGA requerido"), // Ahora es editable
   });
 
   const form = useForm<z.infer<typeof editSchema>>({
     resolver: zodResolver(editSchema),
-    defaultValues: { name: user.name, phone: user.phone },
+    defaultValues: { 
+        name: user.name, 
+        phone: user.phone,
+        ci: user.ci, // Carga el CI actual
+        codigo_SAGA: user.codigo_SAGA || "" // Carga el SAGA actual
+    },
   });
 
   async function onSubmit(values: z.infer<typeof editSchema>) {
     try {
+      // Enviamos todos los nuevos valores al servidor
       const updatedUser = await updateUser({ ...user, ...values });
       if (updatedUser) {
         setUsers((prev) => prev.map(u => u.id === user.id ? updatedUser : u));
-        alert('¡Usuario actualizado!');
+        alert('¡Datos de usuario actualizados correctamente!');
         setOpen(false);
       }
     } catch (error: any) {
-      alert('Error al actualizar.');
+      console.error(error);
+      alert('Error al actualizar. Revisa la consola.');
     }
   }
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <DialogHeader><DialogTitle>Editar Usuario</DialogTitle></DialogHeader>
+        <DialogHeader>
+            <DialogTitle>Editar Datos del Usuario</DialogTitle>
+            <DialogDescription>Como administrador, puedes corregir cualquier dato erróneo.</DialogDescription>
+        </DialogHeader>
+        
         <div className="grid gap-4 py-4">
+           {/* Nombre y Celular */}
            <FormField control={form.control} name="name" render={({ field }) => (
             <FormItem><FormLabel>Nombre Completo</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
           )} />
+           
            <FormField control={form.control} name="phone" render={({ field }) => (
             <FormItem><FormLabel>Celular</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
            )} />
-           <div className="space-y-2">
-               <Label>CI</Label>
-               <Input value={user.ci} disabled className="bg-muted" />
+           
+           {/* CI y SAGA ahora son editables */}
+           <div className="grid grid-cols-2 gap-4 mt-2">
+               <FormField control={form.control} name="ci" render={({ field }) => (
+                <FormItem>
+                    <FormLabel>Cédula de Identidad</FormLabel>
+                    <FormControl>
+                        {/* Quitamos 'disabled' y 'bg-muted' */}
+                        <Input {...field} placeholder="Ej: 1234567 LP" /> 
+                    </FormControl>
+                    <FormMessage />
+                </FormItem>
+               )} />
+
+               <FormField control={form.control} name="codigo_SAGA" render={({ field }) => (
+                <FormItem>
+                    <FormLabel>Código SAGA</FormLabel>
+                    <FormControl>
+                        <Input {...field} placeholder="Ej: A24500-X" />
+                    </FormControl>
+                    <FormMessage />
+                </FormItem>
+               )} />
            </div>
         </div>
-        <DialogFooter><Button type="submit">Guardar Cambios</Button></DialogFooter>
+
+        <DialogFooter>
+            <Button type="submit" className="w-full sm:w-auto">Guardar Correcciones</Button>
+        </DialogFooter>
       </form>
     </Form>
   );
@@ -435,6 +519,7 @@ const UserActionsCell = ({
 }
 
 // --- Definición de Columnas ---
+// --- Definición de Columnas Corregida ---
 const getColumns = (
   setUsers: React.Dispatch<React.SetStateAction<User[]>>,
   onViewDetail: (user: User) => void
@@ -459,8 +544,17 @@ const getColumns = (
     enableHiding: false,
   },
   {
-    accessorKey: 'name',
+    // CORRECCIÓN: Antes esto decía 'status', debe ser 'name'
+    accessorKey: 'name', 
     header: 'Usuario',
+
+    // --- REEMPLAZA LA LÍNEA ANTERIOR POR ESTO ---
+    filterFn: (row, columnId, filterValue) => {
+       const cellValue = row.getValue(columnId);
+       // Convertimos a string y minúsculas para comparar de forma segura
+       return String(cellValue ?? "").toLowerCase().includes(String(filterValue).toLowerCase());
+    },
+    // --------------------------------------------
     cell: ({ row }) => {
       const user = row.original;
       const avatar = PlaceHolderImages.find((img) => img.id === user.avatar);
@@ -479,14 +573,29 @@ const getColumns = (
     },
   },
   {
+    // Esta es la ÚNICA columna de status
     accessorKey: 'status',
-    header: 'Tipo',
+    header: 'Estado',
+    // Agregamos esto para asegurar que el filtrado sea exacto
+    filterFn: 'equalsString', 
     cell: ({ row }) => {
-      const status = row.getValue('status') as string;
-      const isAbonado = status === 'Abonado';
+      // Obtenemos el valor REAL de la base de datos ('Abonado' o 'No Abonado')
+      const rawStatus = row.getValue('status') as string;
+      
+      // Lógica visual: Si es 'Abonado', mostramos 'Activo'
+      const isActive = rawStatus === 'Abonado';
+      const displayLabel = isActive ? 'Activo' : 'Desactivado'; 
+
       return (
-        <Badge variant="outline" className={`${isAbonado ? 'bg-green-100 text-green-800 border-green-200' : 'bg-gray-100 text-gray-800 border-gray-200'}`}>
-          {status}
+        <Badge 
+          variant="outline" 
+          className={`${
+            isActive 
+              ? 'bg-green-100 text-green-800 border-green-200' 
+              : 'bg-gray-100 text-gray-800 border-gray-200'
+          }`}
+        >
+          {displayLabel}
         </Badge>
       );
     },
@@ -559,6 +668,93 @@ export default function UsersPage() {
      }
   }, [statusFilter, table]);
 
+  // --- Función para Exportar a Excel con Estilo Profesional ---
+  const handleExport = async () => {
+    if (users.length === 0) {
+      alert("No hay datos para exportar.");
+      return;
+    }
+
+    // 1. Crear el libro de trabajo y la hoja
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Reporte de Usuarios');
+
+    // 2. Definir columnas y anchos visuales
+    worksheet.columns = [
+      { header: 'ID', key: 'id', width: 10 },
+      { header: 'Nombre Completo', key: 'name', width: 35 },
+      { header: 'Cédula (CI)', key: 'ci', width: 15 },
+      { header: 'Celular', key: 'phone', width: 15 },
+      { header: 'Estado', key: 'status', width: 15 },
+      { header: 'Código SAGA', key: 'saga', width: 15 },
+    ];
+
+    // 3. Insertar datos (Mapeando para que coincida con lo que ves en pantalla)
+    users.forEach((user) => {
+      worksheet.addRow({
+        id: user.id,
+        name: user.name,
+        ci: user.ci,
+        phone: user.phone,
+        // Traducimos: Si en BD es 'Abonado' -> Excel dice 'Activo'
+        status: user.status === 'Abonado' ? 'Activo' : 'Desactivado',
+        saga: user.codigo_SAGA || "S/N",
+      });
+    });
+
+    // 4. ESTILIZAR EL EXCEL 🎨
+    
+    // A) Estilo de la Cabecera (Fila 1)
+    const headerRow = worksheet.getRow(1);
+    headerRow.eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: 'FFFFFF' }, size: 12 };
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: '1E293B' }, // Azul oscuro (Slate-900)
+      };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' },
+      };
+    });
+
+    // B) Estilo de las Filas de Datos
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber > 1) { // Saltamos la cabecera
+        row.eachCell((cell) => {
+          // Bordes para todas las celdas
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' },
+          };
+          // Alineación vertical centrada
+          cell.alignment = { vertical: 'middle', horizontal: 'left' };
+        });
+
+        // C) Colorear texto de Estado (Verde para Activo, Rojo para Desactivado)
+        const statusCell = row.getCell('status');
+        if (statusCell.value === 'Activo') {
+          statusCell.font = { color: { argb: '166534' }, bold: true }; // Verde oscuro
+        } else {
+          statusCell.font = { color: { argb: '991B1B' }, bold: true }; // Rojo oscuro
+        }
+      }
+    });
+
+    // 5. Generar archivo y descargar
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    saveAs(blob, `Reporte_Usuarios_TUEMI_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -575,26 +771,28 @@ export default function UsersPage() {
            <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-[180px]">
                  <Filter className="mr-2 h-4 w-4" />
-                 <SelectValue placeholder="Filtrar por tipo" />
+                 <SelectValue placeholder="Filtrar por estado" />
               </SelectTrigger>
               <SelectContent>
                  <SelectItem value="all">Todos</SelectItem>
-                 <SelectItem value="Abonado">Abonados</SelectItem>
-                 <SelectItem value="No Abonado">No Abonados</SelectItem>
+                 <SelectItem value="Abonado">Activos</SelectItem>
+                 <SelectItem value="No Abonado">Desactivados</SelectItem>
               </SelectContent>
            </Select>
         </div>
 
         <div className="flex items-center gap-2">
-           <Button variant="outline" className="gap-2">
+          {/* AGREGAR onClick={handleExport} AQUÍ 👇 */}
+          <Button variant="outline" className="gap-2" onClick={handleExport}>
               <File className="h-4 w-4" /> Exportar
-           </Button>
-           <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+          </Button>
+          
+          <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
               <DialogTrigger asChild>
-                 <Button className="gap-2"><PlusCircle className="h-4 w-4" /> Nuevo Usuario</Button>
+                <Button className="gap-2"><PlusCircle className="h-4 w-4" /> Nuevo Usuario</Button>
               </DialogTrigger>
               <DialogContent><AddUserForm setOpen={setIsAddOpen} setUsers={setUsers}/></DialogContent>
-           </Dialog>
+          </Dialog>
         </div>
       </div>
 
