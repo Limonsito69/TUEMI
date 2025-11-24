@@ -7,6 +7,9 @@ export type User = {
   avatar: string;
   email?: string;
   assignedRouteId?: number | null;
+  // --- AGREGAMOS ESTO ---
+  codigo_SAGA?: string; 
+  // ---------------------
   nombres?: string;
   paterno?: string;
   materno?: string;
@@ -33,6 +36,7 @@ export type Vehicle = {
   status: 'Activo' | 'En mantenimiento';
   image: string;
 };
+
 export type Route = {
   id: number;
   name: string;
@@ -60,7 +64,6 @@ export type Trip = {
   startTime: Date;
   endTime: Date | null;
   status: 'En curso' | 'Finalizado' | 'Pendiente';
-  // Columnas planas (como vienen de SQL)
   passengersAbonado: number;
   passengersNoAbonado: number;
   locationLat: number | null;
@@ -74,18 +77,21 @@ export type LoginResult = {
     id: number;
     name: string;
     role: 'admin' | 'student' | 'driver';
-    [key: string]: any; // Para permitir otros datos del usuario
+    [key: string]: any; 
   };
 };
 
 export type CreateUserInput = {
+  // --- AGREGAMOS ESTO TAMBIÉN ---
+  codigo_SAGA: string; 
+  // -----------------------------
   nombres: string;
   paterno: string;
-  materno?: string; // Opcional
+  materno?: string; 
   ci_numero: string;
   ci_extension: string;
   phone: string;
-  password?: string; // Para el registro público, podrían setear su clave
+  password?: string; 
 };
 
 export type AuditLog = {
@@ -95,8 +101,8 @@ export type AuditLog = {
   action: string;
   details: string;
   timestamp: Date;
-  adminId?: number; // Puede ser null si el propio usuario hace la acción
-  adminName?: string; // Nombre del admin o "Usuario"
+  adminId?: number; 
+  adminName?: string; 
 };
 
 export type DashboardStats = {
