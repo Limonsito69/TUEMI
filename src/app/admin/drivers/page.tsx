@@ -1,7 +1,17 @@
 'use client';
 
 import * as React from 'react';
-import { MoreHorizontal, PlusCircle, Pencil, Trash, File, KeyRound } from 'lucide-react';
+import { 
+  MoreHorizontal, 
+  PlusCircle, 
+  Pencil, 
+  Trash, 
+  KeyRound, 
+  Search, 
+  IdCard, 
+  Phone, 
+  Car 
+} from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -11,10 +21,7 @@ import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
-  CardHeader,
-  CardTitle,
 } from '@/components/ui/card';
 import {
   DropdownMenu,
@@ -61,8 +68,8 @@ import {
   deleteDriver, 
   resetDriverPassword 
 } from '@/lib/actions';
+import { useToast } from '@/hooks/use-toast';
 
-// --- Esquema de Validación ---
 const formSchema = z.object({
   name: z.string().min(3, "El nombre es requerido."),
   ci: z.string().min(5, "El CI es requerido."),
@@ -71,19 +78,26 @@ const formSchema = z.object({
   status: z.enum(["Activo", "Inactivo"]),
 });
 
-// --- Componente: Diálogo para Cambiar Contraseña ---
 function ResetDriverPasswordDialog({ driver, isOpen, onClose }: { driver: Driver, isOpen: boolean, onClose: () => void }) {
     const [newPass, setNewPass] = React.useState("");
+    const { toast } = useToast();
+    const [isLoading, setIsLoading] = React.useState(false);
     
     const handleReset = async () => {
-        if (!newPass) return alert("Ingresa una contraseña");
+        if (!newPass) {
+          toast({ variant: "destructive", title: "Error", description: "Ingresa una contraseña válida." });
+          return;
+        }
+        setIsLoading(true);
         const success = await resetDriverPassword(driver.id, newPass);
+        setIsLoading(false);
+
         if (success) {
-            alert(`Clave de ${driver.name} actualizada.`);
+            toast({ title: "Contraseña Actualizada", description: `Clave asignada a ${driver.name}.` });
             setNewPass("");
             onClose();
         } else {
-            alert("Error al actualizar.");
+            toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar la contraseña." });
         }
     };
 
@@ -91,55 +105,75 @@ function ResetDriverPasswordDialog({ driver, isOpen, onClose }: { driver: Driver
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Asignar Contraseña</DialogTitle>
-                    <DialogDescription>Define la clave de acceso para {driver.name}.</DialogDescription>
+                    <DialogTitle>Credenciales de Acceso</DialogTitle>
+                    <DialogDescription>Asigna una nueva contraseña para el conductor <strong>{driver.name}</strong>.</DialogDescription>
                 </DialogHeader>
-                <div className="py-4">
-                    <Input 
-                        value={newPass} 
-                        onChange={(e) => setNewPass(e.target.value)} 
-                        placeholder="Nueva contraseña" 
-                        type="text" // Visible para que el admin sepa qué clave está poniendo
-                    />
+                <div className="py-4 space-y-3">
+                    <div className="space-y-1">
+                        <label className="text-sm font-medium">Nueva Contraseña</label>
+                        <Input 
+                            value={newPass} 
+                            onChange={(e) => setNewPass(e.target.value)} 
+                            placeholder="Escribe la nueva clave..." 
+                            type="text" 
+                        />
+                    </div>
                 </div>
                 <DialogFooter>
-                    <Button onClick={handleReset}>Guardar Contraseña</Button>
+                    <Button onClick={handleReset} disabled={isLoading}>
+                        {isLoading ? "Guardando..." : "Guardar Contraseña"}
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
     );
 }
 
-// --- Componente: Formulario Añadir ---
-function AddDriverForm({ setOpen, setDrivers }: { setOpen: (open: boolean) => void, setDrivers: React.Dispatch<React.SetStateAction<Driver[]>> }) {
+function DriverForm({ 
+    driver, 
+    setOpen, 
+    onSuccess 
+}: { 
+    driver?: Driver, 
+    setOpen: (open: boolean) => void, 
+    onSuccess: (driver: Driver) => void 
+}) {
+  const { toast } = useToast();
+  const isEditing = !!driver;
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: "",
-      ci: "",
-      phone: "",
-      license: "",
-      status: "Activo",
+      name: driver?.name || "",
+      ci: driver?.ci || "",
+      phone: driver?.phone || "",
+      license: driver?.license || "",
+      status: (driver?.status as "Activo" | "Inactivo") || "Activo",
     },
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      const driverData = {
-        ...values,
-        avatar: 'driver-placeholder', // Avatar por defecto
-      };
-      const newDriver = await createDriver(driverData);
+      let result: Driver | null;
       
-      if (newDriver) {
-        setDrivers((prev) => [newDriver, ...prev]);
-        alert('¡Conductor registrado! La contraseña por defecto es 123456.');
+      if (isEditing && driver) {
+          result = await updateDriver({ ...driver, ...values });
+      } else {
+          const driverData = { ...values, avatar: 'driver-placeholder' };
+          result = await createDriver(driverData);
+      }
+
+      if (result) {
+        onSuccess(result);
+        toast({ title: isEditing ? "Actualizado" : "Registrado", description: `Datos de ${result.name} guardados correctamente.` });
         setOpen(false);
-        form.reset();
+        if (!isEditing) form.reset();
+      } else {
+        toast({ variant: "destructive", title: "Error", description: "Hubo un problema al guardar. Verifica si el CI ya existe." });
       }
     } catch (error) {
       console.error(error);
-      alert('Error al registrar conductor.');
+      toast({ variant: "destructive", title: "Error Crítico", description: "Error de conexión con el servidor." });
     }
   }
 
@@ -147,8 +181,10 @@ function AddDriverForm({ setOpen, setDrivers }: { setOpen: (open: boolean) => vo
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <DialogHeader>
-          <DialogTitle>Registrar Conductor</DialogTitle>
-          <DialogDescription>Añade un nuevo conductor a la base de datos.</DialogDescription>
+          <DialogTitle>{isEditing ? "Editar Conductor" : "Registrar Nuevo Conductor"}</DialogTitle>
+          <DialogDescription>
+            {isEditing ? "Modifica los datos del personal." : "Ingresa la información para dar de alta a un conductor."}
+          </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <FormField control={form.control} name="name" render={({ field }) => (
@@ -156,10 +192,10 @@ function AddDriverForm({ setOpen, setDrivers }: { setOpen: (open: boolean) => vo
           )} />
           <div className="grid grid-cols-2 gap-4">
             <FormField control={form.control} name="ci" render={({ field }) => (
-              <FormItem><FormLabel>CI</FormLabel><FormControl><Input placeholder="1234567 LP" {...field} /></FormControl><FormMessage /></FormItem>
+              <FormItem><FormLabel>Cédula (Usuario)</FormLabel><FormControl><Input placeholder="Ej: 1234567" {...field} disabled={isEditing} /></FormControl><FormMessage /></FormItem>
             )} />
              <FormField control={form.control} name="license" render={({ field }) => (
-              <FormItem><FormLabel>Licencia</FormLabel><FormControl><Input placeholder="Cat C" {...field} /></FormControl><FormMessage /></FormItem>
+              <FormItem><FormLabel>Licencia</FormLabel><FormControl><Input placeholder="Categoría C" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -180,108 +216,41 @@ function AddDriverForm({ setOpen, setDrivers }: { setOpen: (open: boolean) => vo
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-          <Button type="submit">Guardar</Button>
+          <Button type="submit">{isEditing ? "Guardar Cambios" : "Registrar"}</Button>
         </DialogFooter>
       </form>
     </Form>
   );
 }
 
-// --- Componente: Formulario Editar ---
-function EditDriverForm({ driver, setOpen, setDrivers }: { driver: Driver, setOpen: (open: boolean) => void, setDrivers: React.Dispatch<React.SetStateAction<Driver[]>> }) {
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: driver.name,
-      ci: driver.ci,
-      phone: driver.phone,
-      license: driver.license,
-      status: driver.status as "Activo" | "Inactivo",
-    },
-  });
-
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    try {
-      const updatedData = { ...driver, ...values };
-      const result = await updateDriver(updatedData);
-      if (result) {
-        setDrivers((prev) => prev.map((d) => (d.id === driver.id ? result : d)));
-        alert('¡Conductor actualizado!');
-        setOpen(false);
-      }
-    } catch (error) {
-      console.error(error);
-      alert('Error al actualizar conductor.');
-    }
-  }
-
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <DialogHeader>
-          <DialogTitle>Editar Conductor</DialogTitle>
-        </DialogHeader>
-         <div className="grid gap-4 py-4">
-          <FormField control={form.control} name="name" render={({ field }) => (
-            <FormItem><FormLabel>Nombre Completo</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-          )} />
-          <div className="grid grid-cols-2 gap-4">
-            <FormField control={form.control} name="ci" render={({ field }) => (
-              <FormItem><FormLabel>CI</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-             <FormField control={form.control} name="license" render={({ field }) => (
-              <FormItem><FormLabel>Licencia</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <FormField control={form.control} name="phone" render={({ field }) => (
-              <FormItem><FormLabel>Teléfono</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-             <FormField control={form.control} name="status" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Estado</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                  <SelectContent><SelectItem value="Activo">Activo</SelectItem><SelectItem value="Inactivo">Inactivo</SelectItem></SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )} />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-          <Button type="submit">Guardar Cambios</Button>
-        </DialogFooter>
-      </form>
-    </Form>
-  );
-}
-
-// --- Componente: Acciones ---
 const DriverActionsCell = ({ driver, setDrivers }: { driver: Driver, setDrivers: React.Dispatch<React.SetStateAction<Driver[]>> }) => {
   const [isEditOpen, setIsEditOpen] = React.useState(false);
   const [isPassOpen, setIsPassOpen] = React.useState(false);
+  const { toast } = useToast();
 
   const handleDelete = async () => {
-    if (confirm(`¿Eliminar a ${driver.name}?`)) {
+    if (confirm(`¿Estás seguro de eliminar a ${driver.name}? Esta acción no se puede deshacer.`)) {
       const success = await deleteDriver(driver.id);
       if (success) {
         setDrivers((prev) => prev.filter((d) => d.id !== driver.id));
-        alert('Conductor eliminado.');
+        toast({ title: "Eliminado", description: "El conductor ha sido eliminado del sistema." });
       } else {
-        alert('Error al eliminar.');
+        toast({ variant: "destructive", title: "Error", description: "No se pudo eliminar. Es posible que tenga viajes registrados." });
       }
     }
+  };
+
+  const handleUpdateList = (updatedDriver: Driver) => {
+      setDrivers(prev => prev.map(d => d.id === updatedDriver.id ? updatedDriver : d));
   };
 
   return (
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button size="icon" variant="ghost">
+          <Button size="icon" variant="ghost" className="h-8 w-8 p-0">
             <MoreHorizontal className="h-4 w-4" />
-            <span className="sr-only">Menú</span>
+            <span className="sr-only">Abrir menú</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
@@ -290,121 +259,171 @@ const DriverActionsCell = ({ driver, setDrivers }: { driver: Driver, setDrivers:
             <Pencil className="mr-2 h-4 w-4" /> Editar Datos
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setIsPassOpen(true)}>
-            <KeyRound className="mr-2 h-4 w-4" /> Asignar Contraseña
+            <KeyRound className="mr-2 h-4 w-4" /> Cambiar Contraseña
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleDelete} className="text-red-600">
+          <DropdownMenuItem onClick={handleDelete} className="text-red-600 focus:text-red-600">
             <Trash className="mr-2 h-4 w-4" /> Eliminar
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Modal Editar */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent className="sm:max-w-[425px]">
-          <EditDriverForm driver={driver} setOpen={setIsEditOpen} setDrivers={setDrivers} />
+          <DriverForm driver={driver} setOpen={setIsEditOpen} onSuccess={handleUpdateList} />
         </DialogContent>
       </Dialog>
 
-      {/* Modal Contraseña */}
       <ResetDriverPasswordDialog driver={driver} isOpen={isPassOpen} onClose={() => setIsPassOpen(false)} />
     </>
   );
 };
 
-// --- Página Principal ---
 export default function DriversPage() {
   const [drivers, setDrivers] = React.useState<Driver[]>([]);
+  const [filteredDrivers, setFilteredDrivers] = React.useState<Driver[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
-  const [open, setOpen] = React.useState(false);
+  const [isAddOpen, setIsAddOpen] = React.useState(false);
+  const [searchTerm, setSearchTerm] = React.useState("");
 
   React.useEffect(() => {
     async function loadData() {
       setIsLoading(true);
       const data = await getDrivers();
       setDrivers(data);
+      setFilteredDrivers(data);
       setIsLoading(false);
     }
     loadData();
   }, []);
 
+  React.useEffect(() => {
+      const lowerTerm = searchTerm.toLowerCase();
+      const filtered = drivers.filter(d => 
+          d.name.toLowerCase().includes(lowerTerm) || 
+          d.ci.toLowerCase().includes(lowerTerm) ||
+          d.license.toLowerCase().includes(lowerTerm)
+      );
+      setFilteredDrivers(filtered);
+  }, [searchTerm, drivers]);
+
+  const handleAddSuccess = (newDriver: Driver) => {
+      setDrivers(prev => [newDriver, ...prev]);
+  };
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Registro de Conductores</CardTitle>
-        <CardDescription>Gestiona la información de los conductores.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="hidden w-[100px] sm:table-cell">Avatar</TableHead>
-              <TableHead>Nombre</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead className="hidden md:table-cell">Licencia</TableHead>
-              <TableHead className="hidden md:table-cell">Teléfono</TableHead>
-              <TableHead><span className="sr-only">Acciones</span></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center">Cargando conductores...</TableCell>
-              </TableRow>
-            ) : drivers.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center">No hay conductores registrados.</TableCell>
-              </TableRow>
-            ) : (
-              drivers.map((driver) => {
-                 const driverAvatar = PlaceHolderImages.find((img) => img.id === driver.avatar);
-                 return (
-                  <TableRow key={driver.id}>
-                    <TableCell className="hidden sm:table-cell">
-                      <Avatar>
-                        <AvatarImage src={driverAvatar?.imageUrl} />
-                        <AvatarFallback>{driver.name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                        <div>{driver.name}</div>
-                        <div className="text-xs text-muted-foreground md:hidden">{driver.ci}</div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={driver.status === 'Activo' ? 'default' : 'secondary'}>
-                        {driver.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">{driver.license}</TableCell>
-                    <TableCell className="hidden md:table-cell">{driver.phone}</TableCell>
-                    <TableCell>
-                      <DriverActionsCell driver={driver} setDrivers={setDrivers} />
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </CardContent>
-      <CardFooter>
-        <div className="text-xs text-muted-foreground">
-          Mostrando <strong>{drivers.length}</strong> conductores
+    <div className="flex flex-col space-y-6">
+        <div className="flex items-center justify-between">
+            <div>
+                <h2 className="text-3xl font-bold tracking-tight">Conductores</h2>
+                <p className="text-muted-foreground">Administra el personal autorizado para la flota.</p>
+            </div>
+            <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+                <DialogTrigger asChild>
+                    <Button className="gap-2">
+                        <PlusCircle className="h-4 w-4" /> Registrar Conductor
+                    </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DriverForm setOpen={setIsAddOpen} onSuccess={handleAddSuccess} />
+                </DialogContent>
+            </Dialog>
         </div>
-        <div className="ml-auto">
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="h-8 gap-1">
-                <PlusCircle className="h-3.5 w-3.5" />
-                <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">Añadir Conductor</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-              <AddDriverForm setOpen={setOpen} setDrivers={setDrivers} />
-            </DialogContent>
-          </Dialog>
+
+        <div className="flex items-center gap-4">
+            <div className="relative flex-1 max-w-sm">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input 
+                    placeholder="Buscar por nombre, CI o licencia..." 
+                    className="pl-9"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+            </div>
         </div>
-      </CardFooter>
-    </Card>
+
+        <Card>
+            <CardContent className="p-0">
+                <Table>
+                <TableHeader>
+                    <TableRow>
+                    <TableHead className="hidden w-[80px] sm:table-cell text-center">Foto</TableHead>
+                    <TableHead>Información Personal</TableHead>
+                    <TableHead>Credenciales</TableHead>
+                    <TableHead className="hidden md:table-cell">Contacto</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {isLoading ? (
+                    <TableRow>
+                        <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">Cargando lista de personal...</TableCell>
+                    </TableRow>
+                    ) : filteredDrivers.length === 0 ? (
+                    <TableRow>
+                        <TableCell colSpan={6} className="h-32 text-center">
+                            <div className="flex flex-col items-center justify-center text-muted-foreground">
+                                <Car className="h-8 w-8 mb-2 opacity-20" />
+                                <p>No se encontraron conductores.</p>
+                            </div>
+                        </TableCell>
+                    </TableRow>
+                    ) : (
+                    filteredDrivers.map((driver) => {
+                        const driverAvatar = PlaceHolderImages.find((img) => img.id === driver.avatar);
+                        return (
+                        <TableRow key={driver.id}>
+                            <TableCell className="hidden sm:table-cell">
+                                <div className="flex justify-center">
+                                    <Avatar>
+                                        <AvatarImage src={driverAvatar?.imageUrl} />
+                                        <AvatarFallback>{driver.name.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                </div>
+                            </TableCell>
+                            <TableCell className="font-medium">
+                                <div className="flex flex-col">
+                                    <span>{driver.name}</span>
+                                    <span className="text-xs text-muted-foreground md:hidden">{driver.ci}</span>
+                                </div>
+                            </TableCell>
+                            <TableCell>
+                                <div className="flex flex-col gap-1">
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <IdCard className="h-3 w-3 text-muted-foreground" />
+                                        <span>{driver.ci}</span>
+                                    </div>
+                                    <Badge variant="outline" className="w-fit text-[10px] px-1 py-0 font-normal">
+                                        Lic. {driver.license}
+                                    </Badge>
+                                </div>
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell">
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <Phone className="h-3 w-3" />
+                                    {driver.phone}
+                                </div>
+                            </TableCell>
+                            <TableCell>
+                                <Badge className={driver.status === 'Activo' ? 'bg-green-100 text-green-700 hover:bg-green-200 border-green-200' : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'}>
+                                    {driver.status}
+                                </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                                <DriverActionsCell driver={driver} setDrivers={setDrivers} />
+                            </TableCell>
+                        </TableRow>
+                        );
+                    })
+                    )}
+                </TableBody>
+                </Table>
+            </CardContent>
+            <CardFooter className="bg-muted/20 border-t px-6 py-4 text-xs text-muted-foreground flex justify-between">
+                <span>Total: <strong>{filteredDrivers.length}</strong> conductores</span>
+            </CardFooter>
+        </Card>
+    </div>
   );
 }

@@ -46,6 +46,7 @@ export type Route = {
   status: 'Publicada' | 'En borrador' | 'Inactiva';
   schedule: string;
   stops: number;
+  waypoints?: { lat: number; lng: number; name: string }[]; // Nuevo campo opcional
 };
 
 export type Alert = {
