@@ -61,3 +61,4 @@ Utilizamos una tipografía moderna y legible disponible en Google Fonts.
 2.  Instalar dependencias: `npm install`
 3.  Configurar variables de entorno en `.env.local`.
 4.  Iniciar el servidor de desarrollo: `npm run dev`
+5.  improtar `npm install exceljs`
