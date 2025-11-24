@@ -41,12 +41,13 @@ export type DashboardStats = {
 
 export async function authenticate(ci: string, password: string = '123456') {
   try {
-    const pool = await getDbPool();
+    
 
     // 1. ADMIN MAESTRO
     if (ci === 'admin' && password === 'admin123') {
         return { success: true, user: { name: 'Administrador', id: 0 }, role: 'admin' };
     }
+    const pool = await getDbPool();
 
     // 2. BUSCAR CONDUCTOR
     // IMPORTANTE: La tabla Drivers NO tiene 'ci_numero', solo 'ci'.
