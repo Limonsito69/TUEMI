@@ -15,7 +15,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { runIncidentDetection } from '@/lib/actions';
 import { mockTrips, getVehicleById } from '@/lib/data';
 import type { DetectRouteIncidentOutput } from '@/ai/flows/route-incident-detection';
-import { Skeleton } from './ui/skeleton';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const formSchema = z.object({
   tripId: z.string().min(1, 'Por favor seleccione un vehículo.'),
@@ -38,7 +38,8 @@ export function IncidentDetector() {
     setIsLoading(true);
     setResult(null);
 
-    const trip = mockTrips.find(t => t.id === values.tripId);
+    // CORRECCIÓN 1: Convertimos t.id a string para poder compararlo con values.tripId
+    const trip = mockTrips.find(t => t.id.toString() === values.tripId);
     const vehicle = trip ? getVehicleById(trip.vehicleId) : null;
     
     if (!trip || !vehicle) {
@@ -48,22 +49,24 @@ export function IncidentDetector() {
     }
 
     const aiInput = {
-        routeId: trip.routeId,
-        vehicleId: trip.vehicleId,
+        // CORRECCIÓN 2: La IA espera strings, así que convertimos los IDs numéricos
+        routeId: trip.routeId.toString(),
+        vehicleId: trip.vehicleId.toString(),
         currentLocation: {
-            latitude: trip.location.lat,
-            longitude: trip.location.lng,
+            latitude: trip.locationLat || 0,
+            longitude: trip.locationLng || 0,
             timestamp: new Date().toISOString(),
         },
-        // Para demostración, usamos una ubicación ligeramente más antigua como 'lastKnownGoodLocation'
+        // Agregamos plannedRoute vacío para cumplir con el esquema de la IA
+        plannedRoute: [], 
         lastKnownGoodLocation: {
-            latitude: trip.location.lat + 0.005, // ~500m de distancia
-            longitude: trip.location.lng + 0.005,
+            latitude: (trip.locationLat || 0) + 0.005, 
+            longitude: (trip.locationLng || 0) + 0.005,
             timestamp: new Date(Date.now() - 5 * 60000).toISOString(),
         },
-        averageSpeed: 30, // Simulado
+        averageSpeed: 30, 
         currentSpeed: values.currentSpeed,
-        passengers: trip.passengers.abonado + trip.passengers.noAbonado,
+        passengers: trip.passengersAbonado + trip.passengersNoAbonado,
         capacity: vehicle.capacity,
     };
 
@@ -98,7 +101,8 @@ export function IncidentDetector() {
                     <SelectContent>
                       {mockTrips.filter(t => t.status === 'En curso').map(trip => {
                         const vehicle = getVehicleById(trip.vehicleId);
-                        return <SelectItem key={trip.id} value={trip.id}>{vehicle?.plate}</SelectItem>
+                        // CORRECCIÓN 3: El value del Select debe ser string, convertimos el ID
+                        return <SelectItem key={trip.id} value={trip.id.toString()}>{vehicle?.plate}</SelectItem>
                       })}
                     </SelectContent>
                   </Select>

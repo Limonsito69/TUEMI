@@ -1,4 +1,5 @@
 import sql from 'mssql';
+import './env';
 
 const config: sql.config = {
   user: process.env.DB_USER,

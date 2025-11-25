@@ -1,14 +1,15 @@
-'use client';
+"use client";
 
-import * as React from 'react';
-import Image from 'next/image';
-import { MoreHorizontal, PlusCircle, Pencil, Trash } from 'lucide-react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import * as React from "react";
+import Image from "next/image";
+import { MoreHorizontal, PlusCircle, Pencil, Trash } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { CustomImage } from "@/components/ui/custom-image";
 import {
   Card,
   CardContent,
@@ -16,7 +17,7 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
+} from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,7 +25,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from "@/components/ui/dropdown-menu";
 import {
   Table,
   TableBody,
@@ -32,7 +33,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
+} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -41,7 +42,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -49,12 +50,23 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Vehicle } from '@/types';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { getVehicles, createVehicle, updateVehicle, deleteVehicle } from '@/lib/actions';
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Vehicle } from "@/types";
+import { PlaceHolderImages } from "@/lib/placeholder-images";
+import {
+  getVehicles,
+  createVehicle,
+  updateVehicle,
+  deleteVehicle,
+} from "@/lib/actions";
 
 // --- Esquema de Validación ---
 const formSchema = z.object({
@@ -66,7 +78,13 @@ const formSchema = z.object({
 });
 
 // --- Componente: Formulario para Añadir Vehículo ---
-function AddVehicleForm({ setOpen, setVehicles }: { setOpen: (open: boolean) => void, setVehicles: React.Dispatch<React.SetStateAction<Vehicle[]>> }) {
+function AddVehicleForm({
+  setOpen,
+  setVehicles,
+}: {
+  setOpen: (open: boolean) => void;
+  setVehicles: React.Dispatch<React.SetStateAction<Vehicle[]>>;
+}) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -83,20 +101,20 @@ function AddVehicleForm({ setOpen, setVehicles }: { setOpen: (open: boolean) => 
       // CORRECCIÓN: Añadimos la imagen por defecto aquí
       const vehicleData = {
         ...values,
-        image: 'vehicle-placeholder', 
+        image: "vehicle-placeholder",
       };
 
       const newVehicle = await createVehicle(vehicleData);
-      
+
       if (newVehicle) {
         setVehicles((prev) => [newVehicle, ...prev]);
-        alert('¡Vehículo creado exitosamente!');
+        alert("¡Vehículo creado exitosamente!");
         setOpen(false);
         form.reset();
       }
     } catch (error) {
       console.error(error);
-      alert('Error al crear vehículo. Verifica que la placa no exista.');
+      alert("Error al crear vehículo. Verifica que la placa no exista.");
     }
   }
 
@@ -105,38 +123,102 @@ function AddVehicleForm({ setOpen, setVehicles }: { setOpen: (open: boolean) => 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <DialogHeader>
           <DialogTitle>Añadir Nuevo Vehículo</DialogTitle>
-          <DialogDescription>Registra un nuevo minibús para la flota.</DialogDescription>
+          <DialogDescription>
+            Registra un nuevo minibús para la flota.
+          </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <FormField control={form.control} name="plate" render={({ field }) => (
-            <FormItem><FormLabel>Placa</FormLabel><FormControl><Input placeholder="1234-ABC" {...field} /></FormControl><FormMessage /></FormItem>
-          )} />
-          <div className="grid grid-cols-2 gap-4">
-            <FormField control={form.control} name="brand" render={({ field }) => (
-              <FormItem><FormLabel>Marca</FormLabel><FormControl><Input placeholder="Toyota" {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="model" render={({ field }) => (
-              <FormItem><FormLabel>Modelo</FormLabel><FormControl><Input placeholder="Hiace" {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <FormField control={form.control} name="capacity" render={({ field }) => (
-              <FormItem><FormLabel>Capacidad</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="status" render={({ field }) => (
+          <FormField
+            control={form.control}
+            name="plate"
+            render={({ field }) => (
               <FormItem>
-                <FormLabel>Estado</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl><SelectTrigger><SelectValue placeholder="Selecciona estado" /></SelectTrigger></FormControl>
-                  <SelectContent><SelectItem value="Activo">Activo</SelectItem><SelectItem value="En mantenimiento">En mantenimiento</SelectItem></SelectContent>
-                </Select>
+                <FormLabel>Placa</FormLabel>
+                <FormControl>
+                  <Input placeholder="1234-ABC" {...field} />
+                </FormControl>
                 <FormMessage />
               </FormItem>
-            )} />
+            )}
+          />
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="brand"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Marca</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Toyota" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="model"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Modelo</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Hiace" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="capacity"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Capacidad</FormLabel>
+                  <FormControl>
+                    <Input type="number" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Estado</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona estado" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="Activo">Activo</SelectItem>
+                      <SelectItem value="En mantenimiento">
+                        En mantenimiento
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
         </div>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setOpen(false)}
+          >
+            Cancelar
+          </Button>
           <Button type="submit">Guardar Vehículo</Button>
         </DialogFooter>
       </form>
@@ -145,7 +227,15 @@ function AddVehicleForm({ setOpen, setVehicles }: { setOpen: (open: boolean) => 
 }
 
 // --- Componente: Formulario para Editar Vehículo ---
-function EditVehicleForm({ vehicle, setOpen, setVehicles }: { vehicle: Vehicle, setOpen: (open: boolean) => void, setVehicles: React.Dispatch<React.SetStateAction<Vehicle[]>> }) {
+function EditVehicleForm({
+  vehicle,
+  setOpen,
+  setVehicles,
+}: {
+  vehicle: Vehicle;
+  setOpen: (open: boolean) => void;
+  setVehicles: React.Dispatch<React.SetStateAction<Vehicle[]>>;
+}) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -162,13 +252,15 @@ function EditVehicleForm({ vehicle, setOpen, setVehicles }: { vehicle: Vehicle, 
       const updatedData = { ...vehicle, ...values };
       const result = await updateVehicle(updatedData);
       if (result) {
-        setVehicles((prev) => prev.map((v) => (v.id === vehicle.id ? result : v)));
-        alert('¡Vehículo actualizado!');
+        setVehicles((prev) =>
+          prev.map((v) => (v.id === vehicle.id ? result : v))
+        );
+        alert("¡Vehículo actualizado!");
         setOpen(false);
       }
     } catch (error) {
       console.error(error);
-      alert('Error al actualizar vehículo.');
+      alert("Error al actualizar vehículo.");
     }
   }
 
@@ -179,35 +271,97 @@ function EditVehicleForm({ vehicle, setOpen, setVehicles }: { vehicle: Vehicle, 
           <DialogTitle>Editar Vehículo</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <FormField control={form.control} name="plate" render={({ field }) => (
-            <FormItem><FormLabel>Placa</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-          )} />
-          <div className="grid grid-cols-2 gap-4">
-            <FormField control={form.control} name="brand" render={({ field }) => (
-              <FormItem><FormLabel>Marca</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="model" render={({ field }) => (
-              <FormItem><FormLabel>Modelo</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <FormField control={form.control} name="capacity" render={({ field }) => (
-              <FormItem><FormLabel>Capacidad</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="status" render={({ field }) => (
+          <FormField
+            control={form.control}
+            name="plate"
+            render={({ field }) => (
               <FormItem>
-                <FormLabel>Estado</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                  <SelectContent><SelectItem value="Activo">Activo</SelectItem><SelectItem value="En mantenimiento">En mantenimiento</SelectItem></SelectContent>
-                </Select>
+                <FormLabel>Placa</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
                 <FormMessage />
               </FormItem>
-            )} />
+            )}
+          />
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="brand"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Marca</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="model"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Modelo</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="capacity"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Capacidad</FormLabel>
+                  <FormControl>
+                    <Input type="number" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Estado</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="Activo">Activo</SelectItem>
+                      <SelectItem value="En mantenimiento">
+                        En mantenimiento
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
         </div>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setOpen(false)}
+          >
+            Cancelar
+          </Button>
           <Button type="submit">Guardar Cambios</Button>
         </DialogFooter>
       </form>
@@ -216,7 +370,13 @@ function EditVehicleForm({ vehicle, setOpen, setVehicles }: { vehicle: Vehicle, 
 }
 
 // --- Componente: Celda de Acciones ---
-const VehicleActionsCell = ({ vehicle, setVehicles }: { vehicle: Vehicle, setVehicles: React.Dispatch<React.SetStateAction<Vehicle[]>> }) => {
+const VehicleActionsCell = ({
+  vehicle,
+  setVehicles,
+}: {
+  vehicle: Vehicle;
+  setVehicles: React.Dispatch<React.SetStateAction<Vehicle[]>>;
+}) => {
   const [isEditOpen, setIsEditOpen] = React.useState(false);
 
   const handleDelete = async () => {
@@ -224,9 +384,9 @@ const VehicleActionsCell = ({ vehicle, setVehicles }: { vehicle: Vehicle, setVeh
       const success = await deleteVehicle(vehicle.id);
       if (success) {
         setVehicles((prev) => prev.filter((v) => v.id !== vehicle.id));
-        alert('Vehículo eliminado.');
+        alert("Vehículo eliminado.");
       } else {
-        alert('Error al eliminar. Puede que esté asignado a una ruta o viaje.');
+        alert("Error al eliminar. Puede que esté asignado a una ruta o viaje.");
       }
     }
   };
@@ -254,7 +414,11 @@ const VehicleActionsCell = ({ vehicle, setVehicles }: { vehicle: Vehicle, setVeh
 
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent className="sm:max-w-[425px]">
-          <EditVehicleForm vehicle={vehicle} setOpen={setIsEditOpen} setVehicles={setVehicles} />
+          <EditVehicleForm
+            vehicle={vehicle}
+            setOpen={setIsEditOpen}
+            setVehicles={setVehicles}
+          />
         </DialogContent>
       </Dialog>
     </>
@@ -281,53 +445,85 @@ export default function VehiclesPage() {
     <Card>
       <CardHeader>
         <CardTitle>Vehículos</CardTitle>
-        <CardDescription>Gestiona la flota de transporte de la universidad.</CardDescription>
+        <CardDescription>
+          Gestiona la flota de transporte de la universidad.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="hidden w-[100px] sm:table-cell"><span className="sr-only">Imagen</span></TableHead>
+              <TableHead className="hidden w-[100px] sm:table-cell">
+                <span className="sr-only">Imagen</span>
+              </TableHead>
               <TableHead>Placa</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead className="hidden md:table-cell">Capacidad</TableHead>
-              <TableHead className="hidden md:table-cell">Marca/Modelo</TableHead>
-              <TableHead><span className="sr-only">Acciones</span></TableHead>
+              <TableHead className="hidden md:table-cell">
+                Marca/Modelo
+              </TableHead>
+              <TableHead>
+                <span className="sr-only">Acciones</span>
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center">Cargando vehículos...</TableCell>
+                <TableCell colSpan={6} className="h-24 text-center">
+                  Cargando vehículos...
+                </TableCell>
               </TableRow>
             ) : vehicles.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center">No hay vehículos registrados.</TableCell>
+                <TableCell colSpan={6} className="h-24 text-center">
+                  No hay vehículos registrados.
+                </TableCell>
               </TableRow>
             ) : (
               vehicles.map((vehicle) => {
-                const vehicleImage = PlaceHolderImages.find((img) => img.id === vehicle.image);
+                const vehicleImage = PlaceHolderImages.find(
+                  (img) => img.id === vehicle.image
+                );
                 return (
                   <TableRow key={vehicle.id}>
                     <TableCell className="hidden sm:table-cell">
-                      <Image
+                      <CustomImage
                         alt={vehicle.model}
-                        className="aspect-square rounded-md object-cover"
-                        height="64"
-                        src={vehicleImage?.imageUrl || 'https://placehold.co/600x400?text=Van'}
-                        width="64"
+                        className="aspect-square rounded-md object-cover border"
+                        height={64} // Nota: Next.js prefiere números aquí si no es string
+                        width={64}
+                        src={vehicleImage?.imageUrl}
+                        // El fallback ya está definido por defecto en el componente,
+                        // pero puedes poner uno específico si quieres:
+                        fallbackSrc="https://placehold.co/600x400?text=Vehículo"
                       />
                     </TableCell>
-                    <TableCell className="font-medium">{vehicle.plate}</TableCell>
+                    <TableCell className="font-medium">
+                      {vehicle.plate}
+                    </TableCell>
                     <TableCell>
-                      <Badge variant={vehicle.status === 'Activo' ? 'default' : 'destructive'}>
+                      <Badge
+                        variant={
+                          vehicle.status === "Activo"
+                            ? "default"
+                            : "destructive"
+                        }
+                      >
                         {vehicle.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="hidden md:table-cell">{vehicle.capacity} asientos</TableCell>
-                    <TableCell className="hidden md:table-cell">{vehicle.brand} {vehicle.model}</TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      {vehicle.capacity} asientos
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      {vehicle.brand} {vehicle.model}
+                    </TableCell>
                     <TableCell>
-                      <VehicleActionsCell vehicle={vehicle} setVehicles={setVehicles} />
+                      <VehicleActionsCell
+                        vehicle={vehicle}
+                        setVehicles={setVehicles}
+                      />
                     </TableCell>
                   </TableRow>
                 );
@@ -345,7 +541,9 @@ export default function VehiclesPage() {
             <DialogTrigger asChild>
               <Button size="sm" className="h-8 gap-1">
                 <PlusCircle className="h-3.5 w-3.5" />
-                <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">Añadir Vehículo</span>
+                <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                  Añadir Vehículo
+                </span>
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
