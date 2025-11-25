@@ -54,12 +54,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Driver } from '@/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { 
-  getDrivers, 
-  createDriver, 
-  updateDriver, 
-  deleteDriver, 
-  resetDriverPassword 
+import {
+  getDrivers,
+  createDriver,
+  updateDriver,
+  deleteDriver,
+  resetDriverPassword
 } from '@/lib/actions';
 
 // --- Esquema de Validación ---
@@ -73,41 +73,41 @@ const formSchema = z.object({
 
 // --- Componente: Diálogo para Cambiar Contraseña ---
 function ResetDriverPasswordDialog({ driver, isOpen, onClose }: { driver: Driver, isOpen: boolean, onClose: () => void }) {
-    const [newPass, setNewPass] = React.useState("");
-    
-    const handleReset = async () => {
-        if (!newPass) return alert("Ingresa una contraseña");
-        const success = await resetDriverPassword(driver.id, newPass);
-        if (success) {
-            alert(`Clave de ${driver.name} actualizada.`);
-            setNewPass("");
-            onClose();
-        } else {
-            alert("Error al actualizar.");
-        }
-    };
+  const [newPass, setNewPass] = React.useState("");
 
-    return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Asignar Contraseña</DialogTitle>
-                    <DialogDescription>Define la clave de acceso para {driver.name}.</DialogDescription>
-                </DialogHeader>
-                <div className="py-4">
-                    <Input 
-                        value={newPass} 
-                        onChange={(e) => setNewPass(e.target.value)} 
-                        placeholder="Nueva contraseña" 
-                        type="text" // Visible para que el admin sepa qué clave está poniendo
-                    />
-                </div>
-                <DialogFooter>
-                    <Button onClick={handleReset}>Guardar Contraseña</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
+  const handleReset = async () => {
+    if (!newPass) return alert("Ingresa una contraseña");
+    const success = await resetDriverPassword(driver.id, newPass);
+    if (success) {
+      alert(`Clave de ${driver.name} actualizada.`);
+      setNewPass("");
+      onClose();
+    } else {
+      alert("Error al actualizar.");
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Asignar Contraseña</DialogTitle>
+          <DialogDescription>Define la clave de acceso para {driver.name}.</DialogDescription>
+        </DialogHeader>
+        <div className="py-4">
+          <Input
+            value={newPass}
+            onChange={(e) => setNewPass(e.target.value)}
+            placeholder="Nueva contraseña"
+            type="text" // Visible para que el admin sepa qué clave está poniendo
+          />
+        </div>
+        <DialogFooter>
+          <Button onClick={handleReset}>Guardar Contraseña</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 // --- Componente: Formulario Añadir ---
@@ -130,7 +130,7 @@ function AddDriverForm({ setOpen, setDrivers }: { setOpen: (open: boolean) => vo
         avatar: 'driver-placeholder', // Avatar por defecto
       };
       const newDriver = await createDriver(driverData);
-      
+
       if (newDriver) {
         setDrivers((prev) => [newDriver, ...prev]);
         alert('¡Conductor registrado! La contraseña por defecto es 123456.');
@@ -158,7 +158,7 @@ function AddDriverForm({ setOpen, setDrivers }: { setOpen: (open: boolean) => vo
             <FormField control={form.control} name="ci" render={({ field }) => (
               <FormItem><FormLabel>CI</FormLabel><FormControl><Input placeholder="1234567 LP" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
-             <FormField control={form.control} name="license" render={({ field }) => (
+            <FormField control={form.control} name="license" render={({ field }) => (
               <FormItem><FormLabel>Licencia</FormLabel><FormControl><Input placeholder="Cat C" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
           </div>
@@ -166,7 +166,7 @@ function AddDriverForm({ setOpen, setDrivers }: { setOpen: (open: boolean) => vo
             <FormField control={form.control} name="phone" render={({ field }) => (
               <FormItem><FormLabel>Teléfono</FormLabel><FormControl><Input placeholder="+591..." {...field} /></FormControl><FormMessage /></FormItem>
             )} />
-             <FormField control={form.control} name="status" render={({ field }) => (
+            <FormField control={form.control} name="status" render={({ field }) => (
               <FormItem>
                 <FormLabel>Estado</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
@@ -221,7 +221,7 @@ function EditDriverForm({ driver, setOpen, setDrivers }: { driver: Driver, setOp
         <DialogHeader>
           <DialogTitle>Editar Conductor</DialogTitle>
         </DialogHeader>
-         <div className="grid gap-4 py-4">
+        <div className="grid gap-4 py-4">
           <FormField control={form.control} name="name" render={({ field }) => (
             <FormItem><FormLabel>Nombre Completo</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
           )} />
@@ -229,7 +229,7 @@ function EditDriverForm({ driver, setOpen, setDrivers }: { driver: Driver, setOp
             <FormField control={form.control} name="ci" render={({ field }) => (
               <FormItem><FormLabel>CI</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
             )} />
-             <FormField control={form.control} name="license" render={({ field }) => (
+            <FormField control={form.control} name="license" render={({ field }) => (
               <FormItem><FormLabel>Licencia</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
             )} />
           </div>
@@ -237,7 +237,7 @@ function EditDriverForm({ driver, setOpen, setDrivers }: { driver: Driver, setOp
             <FormField control={form.control} name="phone" render={({ field }) => (
               <FormItem><FormLabel>Teléfono</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
             )} />
-             <FormField control={form.control} name="status" render={({ field }) => (
+            <FormField control={form.control} name="status" render={({ field }) => (
               <FormItem>
                 <FormLabel>Estado</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
@@ -312,27 +312,40 @@ const DriverActionsCell = ({ driver, setDrivers }: { driver: Driver, setDrivers:
   );
 };
 
-// --- Página Principal ---
+/// --- Página Principal ---
 export default function DriversPage() {
   const [drivers, setDrivers] = React.useState<Driver[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [open, setOpen] = React.useState(false);
+  const [searchTerm, setSearchTerm] = React.useState(''); // 👈 NUEVO: Estado para el término de búsqueda
 
   React.useEffect(() => {
     async function loadData() {
       setIsLoading(true);
-      const data = await getDrivers();
+      // LLAMA a la función getDrivers con el término de búsqueda
+      // Necesitarás modificar getDrivers en src/lib/actions.ts después de esto
+      const data = await getDrivers(searchTerm);
       setDrivers(data);
       setIsLoading(false);
     }
     loadData();
-  }, []);
+  }, [searchTerm]); // 👈 CLAVE: Se ejecuta cuando la búsqueda cambia
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Registro de Conductores</CardTitle>
-        <CardDescription>Gestiona la información de los conductores.</CardDescription>
+      {/* 👈 MODIFICACIÓN CRÍTICA AQUÍ */}
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <div>
+          <CardTitle>Registro de Conductores</CardTitle>
+          <CardDescription>Gestiona la información de los conductores.</CardDescription>
+        </div>
+        {/* 👈 NUEVO: Barra de Búsqueda */}
+        <Input
+          placeholder="Buscar por Nombre, CI, o Licencia..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-[250px] md:w-[350px]"
+        />
       </CardHeader>
       <CardContent>
         <Table>
@@ -357,8 +370,8 @@ export default function DriversPage() {
               </TableRow>
             ) : (
               drivers.map((driver) => {
-                 const driverAvatar = PlaceHolderImages.find((img) => img.id === driver.avatar);
-                 return (
+                const driverAvatar = PlaceHolderImages.find((img) => img.id === driver.avatar);
+                return (
                   <TableRow key={driver.id}>
                     <TableCell className="hidden sm:table-cell">
                       <Avatar>
@@ -367,8 +380,8 @@ export default function DriversPage() {
                       </Avatar>
                     </TableCell>
                     <TableCell className="font-medium">
-                        <div>{driver.name}</div>
-                        <div className="text-xs text-muted-foreground md:hidden">{driver.ci}</div>
+                      <div>{driver.name}</div>
+                      <div className="text-xs text-muted-foreground md:hidden">{driver.ci}</div>
                     </TableCell>
                     <TableCell>
                       <Badge variant={driver.status === 'Activo' ? 'default' : 'secondary'}>

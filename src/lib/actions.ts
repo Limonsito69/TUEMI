@@ -293,63 +293,129 @@ export async function deleteVehicle(id: number): Promise<boolean> {
 
 // --- GESTIÓN DE CONDUCTORES ---
 
-export async function getDrivers(): Promise<Driver[]> {
+export async function getDrivers(search: string = ''): Promise<Driver[]> {
   try {
     const pool = await getDbPool();
-    const result = await pool.request().query('SELECT * FROM Drivers ORDER BY id DESC');
+
+    const query = `
+      SELECT * FROM Drivers
+      WHERE 
+        name LIKE @search
+        OR ci LIKE @search
+        OR license LIKE @search
+      ORDER BY id DESC
+    `;
+
+    const result = await pool.request()
+      .input('search', sql.NVarChar, `%${search}%`)
+      .query(query);
+
     return result.recordset as Driver[];
-  } catch (error) { return []; }
+  } catch (error) {
+    return [];
+  }
 }
 
 export async function createDriver(data: any): Promise<Driver | null> {
   try {
     const pool = await getDbPool();
     const result = await pool.request()
-      .input('name', sql.NVarChar, data.name).input('ci', sql.NVarChar, data.ci).input('phone', sql.NVarChar, data.phone)
-      .input('license', sql.NVarChar, data.license).input('status', sql.NVarChar, data.status).input('avatar', sql.NVarChar, data.avatar || 'driver-placeholder')
-      .query(`INSERT INTO Drivers (name, ci, phone, license, status, avatar, password) OUTPUT INSERTED.* VALUES (@name, @ci, @phone, @license, @status, @avatar, '123456')`);
+      .input('name', sql.NVarChar, data.name)
+      .input('ci', sql.NVarChar, data.ci)
+      .input('phone', sql.NVarChar, data.phone)
+      .input('license', sql.NVarChar, data.license)
+      .input('status', sql.NVarChar, data.status)
+      .input('avatar', sql.NVarChar, data.avatar || 'driver-placeholder')
+      .query(`
+        INSERT INTO Drivers (name, ci, phone, license, status, avatar, password)
+        OUTPUT INSERTED.*
+        VALUES (@name, @ci, @phone, @license, @status, @avatar, '123456')
+      `);
+
     return result.recordset[0] as Driver;
-  } catch (error) { return null; }
+  } catch (error) {
+    return null;
+  }
 }
 
 export async function updateDriver(driver: any): Promise<Driver | null> {
   try {
     const pool = await getDbPool();
     const result = await pool.request()
-      .input('id', sql.Int, driver.id).input('name', sql.NVarChar, driver.name).input('ci', sql.NVarChar, driver.ci)
-      .input('phone', sql.NVarChar, driver.phone).input('license', sql.NVarChar, driver.license).input('status', sql.NVarChar, driver.status)
-      .query(`UPDATE Drivers SET name=@name, ci=@ci, phone=@phone, license=@license, status=@status OUTPUT INSERTED.* WHERE id=@id`);
+      .input('id', sql.Int, driver.id)
+      .input('name', sql.NVarChar, driver.name)
+      .input('ci', sql.NVarChar, driver.ci)
+      .input('phone', sql.NVarChar, driver.phone)
+      .input('license', sql.NVarChar, driver.license)
+      .input('status', sql.NVarChar, driver.status)
+      .query(`
+        UPDATE Drivers 
+        SET name = @name, ci = @ci, phone = @phone, license = @license, status = @status
+        OUTPUT INSERTED.*
+        WHERE id = @id
+      `);
+
     return result.recordset[0] as Driver;
-  } catch (error) { return null; }
+  } catch (error) {
+    return null;
+  }
 }
 
 export async function deleteDriver(id: number): Promise<boolean> {
   try {
     const pool = await getDbPool();
-    await pool.request().input('id', sql.Int, id).query('DELETE FROM Drivers WHERE id = @id');
+    await pool.request()
+      .input('id', sql.Int, id)
+      .query('DELETE FROM Drivers WHERE id = @id');
     return true;
-  } catch (error) { return false; }
+  } catch (error) {
+    return false;
+  }
 }
 
 export async function resetDriverPassword(id: number, p: string): Promise<boolean> {
   try {
     const pool = await getDbPool();
-    await pool.request().input('id', sql.Int, id).input('p', sql.NVarChar, p).query("UPDATE Drivers SET password = @p WHERE id = @id");
+    await pool.request()
+      .input('id', sql.Int, id)
+      .input('p', sql.NVarChar, p)
+      .query("UPDATE Drivers SET password = @p WHERE id = @id");
     return true;
-  } catch { return false; }
+  } catch {
+    return false;
+  }
 }
 
-export async function changeDriverPassword(driverId: number, currentPass: string, newPass: string): Promise<{ success: boolean; message: string }> {
+export async function changeDriverPassword(
+  driverId: number,
+  currentPass: string,
+  newPass: string
+): Promise<{ success: boolean; message: string }> {
   try {
     const pool = await getDbPool();
-    const check = await pool.request().input('id', sql.Int, driverId).query("SELECT password FROM Drivers WHERE id = @id");
-    if (check.recordset.length === 0) return { success: false, message: 'Conductor no encontrado.' };
-    if (check.recordset[0].password !== currentPass) return { success: false, message: 'Contraseña incorrecta.' };
 
-    await pool.request().input('id', sql.Int, driverId).input('p', sql.NVarChar, newPass).query("UPDATE Drivers SET password = @p WHERE id = @id");
+    const check = await pool.request()
+      .input('id', sql.Int, driverId)
+      .query("SELECT password FROM Drivers WHERE id = @id");
+
+    if (check.recordset.length === 0)
+      return { success: false, message: 'Conductor no encontrado.' };
+
+    if (check.recordset[0].password !== currentPass)
+      return { success: false, message: 'Contraseña incorrecta.' };
+
+    await pool.request()
+      .input('id', sql.Int, driverId)
+      .input('p', sql.NVarChar, newPass)
+      .query("UPDATE Drivers SET password = @p WHERE id = @id");
+
     return { success: true, message: 'Contraseña actualizada.' };
-  } catch (error) { return { success: false, message: 'Error servidor.' }; }
+
+  } catch (error) {
+    return { success: false, message: 'Error servidor.' };
+  }
 }
+
 
 // --- GESTIÓN DE RUTAS ---
 
