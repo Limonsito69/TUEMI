@@ -99,7 +99,7 @@ function ResetDriverPasswordDialog({ driver, isOpen, onClose }: { driver: Driver
             value={newPass}
             onChange={(e) => setNewPass(e.target.value)}
             placeholder="Nueva contraseña"
-            type="text" // Visible para que el admin sepa qué clave está poniendo
+            type="text"
           />
         </div>
         <DialogFooter>
@@ -109,6 +109,97 @@ function ResetDriverPasswordDialog({ driver, isOpen, onClose }: { driver: Driver
     </Dialog>
   );
 }
+
+// --- Componente: Diálogo Ver Perfil Completo ---
+function DriverProfileDialog({
+  driver,
+  isOpen,
+  onClose,
+  history = [], // historial de cambios opcional
+}: {
+  driver: Driver | null;
+  isOpen: boolean;
+  onClose: () => void;
+  history?: { date: string; action: string }[];
+}) {
+  if (!driver) return null;
+
+  const driverAvatar = PlaceHolderImages.find((img) => img.id === driver.avatar);
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl">
+        {/* --- Encabezado --- */}
+        <DialogHeader className="text-center">
+          <DialogTitle className="text-xl font-bold">PERFIL DEL CONDUCTOR</DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
+            DETALLES COMPLETOS E HISTORIAL DE ACTIVIDAD
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* --- Avatar, Nombre y Estado --- */}
+        <div className="flex flex-col items-center gap-2 mt-4">
+          <Avatar className="h-24 w-24">
+            <AvatarImage src={driverAvatar?.imageUrl} />
+            <AvatarFallback>{driver.name.charAt(0)}</AvatarFallback>
+          </Avatar>
+          <h3 className="text-lg font-semibold">{driver.name}</h3>
+          <Badge
+            variant={driver.status === "Activo" ? "default" : "secondary"}
+            className="px-3 py-1 mt-1"
+          >
+            {driver.status}
+          </Badge>
+        </div>
+
+        {/* --- Datos Personales en Recuadro --- */}
+        <div className="mt-6 border rounded-lg p-4 bg-muted/10">
+          <h4 className="text-md font-semibold mb-2">Datos Personales</h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="flex flex-col">
+              <span className="text-xs text-muted-foreground">Nombre</span>
+              <span className="font-medium">{driver.name}</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-muted-foreground">CI</span>
+              <span className="font-medium">{driver.ci}</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-muted-foreground">Licencia</span>
+              <span className="font-medium">{driver.license}</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-muted-foreground">Teléfono</span>
+              <span className="font-medium">{driver.phone}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* --- Historial de Cambios en Recuadro --- */}
+        <div className="mt-6 border rounded-lg p-4 bg-muted/10">
+          <h4 className="text-md font-semibold mb-2">Historial de Cambios</h4>
+          {history.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No hay historial disponible.</p>
+          ) : (
+            <ul className="space-y-2 max-h-40 overflow-y-auto">
+              {history.map((item, idx) => (
+                <li key={idx} className="text-sm">
+                  <span className="font-medium">{item.date}:</span> {item.action}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* --- Footer --- */}
+        <DialogFooter className="mt-6 justify-end">
+          <Button variant="outline" onClick={onClose}>Cerrar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 // --- Componente: Formulario Añadir ---
 function AddDriverForm({ setOpen, setDrivers }: { setOpen: (open: boolean) => void, setDrivers: React.Dispatch<React.SetStateAction<Driver[]>> }) {
@@ -127,7 +218,7 @@ function AddDriverForm({ setOpen, setDrivers }: { setOpen: (open: boolean) => vo
     try {
       const driverData = {
         ...values,
-        avatar: 'driver-placeholder', // Avatar por defecto
+        avatar: 'driver-placeholder',
       };
       const newDriver = await createDriver(driverData);
 
@@ -259,7 +350,7 @@ function EditDriverForm({ driver, setOpen, setDrivers }: { driver: Driver, setOp
 }
 
 // --- Componente: Acciones ---
-const DriverActionsCell = ({ driver, setDrivers }: { driver: Driver, setDrivers: React.Dispatch<React.SetStateAction<Driver[]>> }) => {
+const DriverActionsCell = ({ driver, setDrivers, onViewProfile }: { driver: Driver, setDrivers: React.Dispatch<React.SetStateAction<Driver[]>>, onViewProfile: (driver: Driver) => void }) => {
   const [isEditOpen, setIsEditOpen] = React.useState(false);
   const [isPassOpen, setIsPassOpen] = React.useState(false);
 
@@ -284,69 +375,107 @@ const DriverActionsCell = ({ driver, setDrivers }: { driver: Driver, setDrivers:
             <span className="sr-only">Menú</span>
           </Button>
         </DropdownMenuTrigger>
+
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+
+          <DropdownMenuItem onClick={() => onViewProfile(driver)}>
+            Ver Perfil Completo
+          </DropdownMenuItem>
+
           <DropdownMenuItem onClick={() => setIsEditOpen(true)}>
             <Pencil className="mr-2 h-4 w-4" /> Editar Datos
           </DropdownMenuItem>
+
           <DropdownMenuItem onClick={() => setIsPassOpen(true)}>
             <KeyRound className="mr-2 h-4 w-4" /> Asignar Contraseña
           </DropdownMenuItem>
+
           <DropdownMenuSeparator />
+
           <DropdownMenuItem onClick={handleDelete} className="text-red-600">
             <Trash className="mr-2 h-4 w-4" /> Eliminar
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Modal Editar */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <EditDriverForm driver={driver} setOpen={setIsEditOpen} setDrivers={setDrivers} />
         </DialogContent>
       </Dialog>
 
-      {/* Modal Contraseña */}
       <ResetDriverPasswordDialog driver={driver} isOpen={isPassOpen} onClose={() => setIsPassOpen(false)} />
     </>
   );
 };
 
-/// --- Página Principal ---
+// --- Página Principal ---
 export default function DriversPage() {
   const [drivers, setDrivers] = React.useState<Driver[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [open, setOpen] = React.useState(false);
-  const [searchTerm, setSearchTerm] = React.useState(''); // 👈 NUEVO: Estado para el término de búsqueda
+  const [searchTerm, setSearchTerm] = React.useState('');
+  const [statusFilter, setStatusFilter] = React.useState<'Activo' | 'Inactivo' | ''>('');
+
+  const [selectedDriver, setSelectedDriver] = React.useState<Driver | null>(null);
+  const [isProfileOpen, setIsProfileOpen] = React.useState(false);
+
+  const handleViewProfile = (driver: Driver) => {
+    setSelectedDriver(driver);
+    setIsProfileOpen(true);
+  };
 
   React.useEffect(() => {
     async function loadData() {
       setIsLoading(true);
-      // LLAMA a la función getDrivers con el término de búsqueda
-      // Necesitarás modificar getDrivers en src/lib/actions.ts después de esto
-      const data = await getDrivers(searchTerm);
+      let data = await getDrivers(searchTerm);
+
+      // --- Filtrado por Estado ---
+      if (statusFilter) {
+        data = data.filter((d) => d.status === statusFilter);
+      }
+
       setDrivers(data);
       setIsLoading(false);
     }
     loadData();
-  }, [searchTerm]); // 👈 CLAVE: Se ejecuta cuando la búsqueda cambia
+  }, [searchTerm, statusFilter]);
 
   return (
     <Card>
-      {/* 👈 MODIFICACIÓN CRÍTICA AQUÍ */}
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <div>
           <CardTitle>Registro de Conductores</CardTitle>
           <CardDescription>Gestiona la información de los conductores.</CardDescription>
         </div>
-        {/* 👈 NUEVO: Barra de Búsqueda */}
-        <Input
-          placeholder="Buscar por Nombre, CI, o Licencia..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-[250px] md:w-[350px]"
-        />
+
+        {/* --- Filtros --- */}
+        <div className="flex gap-2">
+          <Input
+            placeholder="Buscar por Nombre..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-[200px] md:w-[250px]"
+          />
+          <Select
+            onValueChange={(value) => setStatusFilter(value === "all" ? "" : (value as 'Activo' | 'Inactivo'))}
+            value={statusFilter === "" ? "all" : statusFilter}
+          >
+            <SelectTrigger className="w-[120px]">
+              <SelectValue placeholder="Estado" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="Activo">Activo</SelectItem>
+              <SelectItem value="Inactivo">Inactivo</SelectItem>
+            </SelectContent>
+          </Select>
+
+        </div>
       </CardHeader>
+
+      {/* --- Tabla --- */}
       <CardContent>
         <Table>
           <TableHeader>
@@ -391,7 +520,7 @@ export default function DriversPage() {
                     <TableCell className="hidden md:table-cell">{driver.license}</TableCell>
                     <TableCell className="hidden md:table-cell">{driver.phone}</TableCell>
                     <TableCell>
-                      <DriverActionsCell driver={driver} setDrivers={setDrivers} />
+                      <DriverActionsCell driver={driver} setDrivers={setDrivers} onViewProfile={handleViewProfile} />
                     </TableCell>
                   </TableRow>
                 );
@@ -400,6 +529,8 @@ export default function DriversPage() {
           </TableBody>
         </Table>
       </CardContent>
+
+      {/* --- Footer con Añadir Conductor --- */}
       <CardFooter>
         <div className="text-xs text-muted-foreground">
           Mostrando <strong>{drivers.length}</strong> conductores
@@ -418,6 +549,9 @@ export default function DriversPage() {
           </Dialog>
         </div>
       </CardFooter>
+
+      {/* --- Modal Ver Perfil --- */}
+      <DriverProfileDialog driver={selectedDriver} isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
     </Card>
   );
 }
