@@ -1,247 +1,207 @@
-'use client';
+import Image from "next/image";
+import Link from "next/link";
+import { FaFacebook, FaInstagram, FaWhatsapp } from "react-icons/fa";
 
-import * as React from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { authenticate, registerStudent } from '@/lib/actions'; 
-import { Logo } from '@/components/logo'; // Asegúrate de que este componente exista, o usa un ícono de lucide-react
-import { BusFront } from 'lucide-react'; // Icono alternativo si no tienes Logo
 
-// --- CONSTANTES ---
-const EXTENSIONES = ["LP", "SC", "CB", "OR", "PT", "TJ", "CH", "BE", "PD"];
-
-// --- ESQUEMAS ---
-const loginSchema = z.object({
-  ci: z.string().min(3, "Ingresa tu CI."),
-  password: z.string().min(1, "Ingresa tu contraseña."),
-});
-
-const registerSchema = z.object({
-  ci_numero: z.string().min(5, "CI requerido"),
-  ci_extension: z.string().min(2, "Extensión requerida"),
-  nombres: z.string().min(2, "Nombre requerido"),
-  paterno: z.string().min(2, "Ap. Paterno requerido"),
-  materno: z.string().optional(),
-  email: z.string().email("Correo inválido"),
-  phone: z.string().min(8, "Celular requerido"),
-  password: z.string().min(6, "Mínimo 6 caracteres"),
-  terms: z.boolean().refine(val => val === true, { message: "Acepta los términos" }),
-});
-
-export default function AuthPage() {
-  const router = useRouter();
-  const [isLoading, setIsLoading] = React.useState(false);
-
-  // --- LOGIN ---
-  const loginForm = useForm<z.infer<typeof loginSchema>>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: { ci: "", password: "" },
-  });
-
-  async function onLogin(values: z.infer<typeof loginSchema>) {
-    setIsLoading(true);
-    try {
-      // Ya no enviamos el rol, el backend lo deduce
-      const result = await authenticate(values.ci, values.password);
-
-      if (result.success && result.user) {
-        if (typeof window !== 'undefined') {
-          sessionStorage.setItem('loggedInUser', JSON.stringify({ 
-            role: result.role, 
-            ...result.user 
-          }));
-        }
-        // Redirección automática según lo que detectó el backend
-        if (result.role === 'admin') router.push('/admin');
-        else if (result.role === 'driver') router.push('/driver');
-        else router.push('/student');
-      } else {
-        alert(result.message);
-      }
-    } catch (e) {
-      alert("Error de conexión.");
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  // --- REGISTRO (Solo Estudiantes) ---
-  const registerForm = useForm<z.infer<typeof registerSchema>>({
-    resolver: zodResolver(registerSchema),
-    defaultValues: { 
-      ci_numero: "", ci_extension: "LP", nombres: "", paterno: "", 
-      materno: "", email: "", phone: "", password: "", terms: false 
-    },
-  });
-
-  async function onRegister(values: z.infer<typeof registerSchema>) {
-    setIsLoading(true);
-    try {
-      // @ts-ignore
-      const result = await registerStudent({ ...values, materno: values.materno || "" });
-      if (result.success) {
-        sessionStorage.setItem('loggedInUser', JSON.stringify({ role: 'student', ...result.user }));
-        alert('¡Bienvenido! Registro exitoso.');
-        router.push('/student');
-      } else {
-        alert(result.message);
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
+export default function HomePage() {
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-blue-600 to-indigo-900 p-4">
-      
-      <div className="w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col lg:flex-row min-h-[600px]">
-        
-        {/* --- LADO IZQUIERDO (Bienvenida / Decorativo) --- */}
-        <div className="hidden lg:flex flex-1 bg-blue-600 relative flex-col justify-center items-center text-white p-12 bg-[url('https://images.unsplash.com/photo-1570125909232-eb263c188f7e?q=80&w=2071&auto=format&fit=crop')] bg-cover bg-center">
-            <div className="absolute inset-0 bg-blue-900/70"></div> {/* Overlay oscuro */}
-            
-            <div className="relative z-10 flex flex-col items-center text-center">
-                <div className="bg-white/20 p-4 rounded-full backdrop-blur-md mb-6 shadow-lg">
-                    {/* Si tienes el componente Logo úsalo, si no usa el icono BusFront */}
-                    <BusFront className="w-16 h-16 text-white" />
-                </div>
-                <h1 className="text-5xl font-bold mb-4 tracking-tight">T.U.E.M.I.</h1>
-                <p className="text-lg text-blue-100 max-w-md leading-relaxed">
-                    Sistema de Transporte Universitario Inteligente. <br/>
-                    Gestiona tus rutas, monitorea tu bus y viaja seguro.
+    <div className="min-h-screen flex flex-col bg-[#EEF1FF]">
+      {/* NAVBAR - CORREGIDO */}
+      <nav className="w-full bg-white shadow-md">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+            <div className="flex items-center gap-3">
+                <Image
+                src="/img/logo_1.png"
+                width={48}
+                height={48}
+                alt="Logo TUEMI"
+                // CLASE CORREGIDA: Eliminado "rounded-md"
+                />
+                <span className="text-xl font-bold text-[#0F1E7A]">
+                Sistema T.U.E.M.I.
+                </span>
+            </div>
+
+            <div className="flex gap-6 text-[#0F1E7A] font-semibold">
+                <a href="#sobre" className="hover:text-[#1B2BA5]">
+                Sobre el sistema
+                </a>
+                <a href="#caracteristicas" className="hover:text-[#1B2BA5]">
+                Características
+                </a>
+                <a href="#contacto" className="hover:text-[#1B2BA5]">
+                Contacto
+                </a>
+                <Link
+                href="/login"
+                className="px-4 py-2 bg-[#0F1E7A] text-white rounded-md hover:bg-[#1B2BA5]"
+                >
+                Iniciar Sesión
+                </Link>
+            </div>
+            </div>
+        </nav>
+
+        {/* HERO - CORREGIDO */}
+        <section className="flex flex-col lg:flex-row items-center justify-between px-8 lg:px-20 py-20">
+            <div className="max-w-xl">
+            <h1 className="text-4xl font-bold text-[#0F1E7A]">
+                Optimiza el transporte universitario con TUEMI
+            </h1>
+            <p className="text-lg text-gray-700 mt-4">
+                Plataforma inteligente diseñada para gestionar, monitorear y
+                mejorar la eficiencia del transporte en la EMI.
+            </p>
+            <Link
+                href="/login"
+                className="mt-6 inline-block px-6 py-3 bg-[#0F1E7A] text-white rounded-md text-lg hover:bg-[#1B2BA5]"
+            >
+                Acceder al Sistema
+            </Link>
+            </div>
+
+            <div className="mt-10 lg:mt-0">
+            <Image
+                src="/img/logo_1.png"
+                width={350}
+                height={350}
+                alt="TUEMI principal"
+                // CLASES CORREGIDAS: Eliminado "rounded-xl shadow-lg"
+            />
+            </div>
+        </section>
+
+        {/* SOBRE */}
+        <section id="sobre" className="bg-white py-20 px-8 lg:px-20">
+            <h2 className="text-3xl font-bold text-[#0F1E7A] text-center">
+            ¿Qué es TUEMI?
+            </h2>
+            <p className="max-w-3xl mx-auto mt-6 text-gray-700 text-lg text-center">
+            TUEMI es un sistema integral desarrollado para mejorar el desempeño del
+            transporte universitario en la Escuela Militar de Ingeniería, 
+            facilitando el control de rutas, monitoreo en tiempo real y análisis
+            inteligente de datos.
+            </p>
+        </section>
+
+        {/* CARACTERÍSTICAS */}
+        <section
+            id="caracteristicas"
+            className="py-20 px-8 lg:px-20 bg-[#EEF1FF]"
+        >
+            <h2 className="text-3xl font-bold text-[#0F1E7A] text-center">
+            Características principales
+            </h2>
+
+            <div className="grid md:grid-cols-3 gap-10 mt-10 max-w-6xl mx-auto">
+            <div className="p-6 bg-white shadow-md rounded-xl">
+                <h3 className="text-xl font-semibold text-[#0F1E7A]">
+                Monitoreo en tiempo real
+                </h3>
+                <p className="mt-2 text-gray-600">
+                Observa la ubicación de buses, su estado y alertas al instante.
                 </p>
             </div>
 
-            <div className="relative z-10 mt-12 text-sm text-blue-200/60">
-                © {new Date().getFullYear()} Escuela Militar de Ingeniería
+            <div className="p-6 bg-white shadow-md rounded-xl">
+                <h3 className="text-xl font-semibold text-[#0F1E7A]">
+                Gestión de rutas y usuarios
+                </h3>
+                <p className="mt-2 text-gray-600">
+                Administra conductores, estudiantes y rutas con facilidad.
+                </p>
+            </div>
+
+            <div className="p-6 bg-white shadow-md rounded-xl">
+                <h3 className="text-xl font-semibold text-[#0F1E7A]">
+                Reportes automáticos
+                </h3>
+                <p className="mt-2 text-gray-600">
+                Accede a reportes completos para mejorar la toma de decisiones.
+                </p>
+            </div>
+            </div>
+        </section>
+
+        {/* CONTACTO + FOOTER - CORREGIDO */}
+        <footer className="bg-[#0F1E7A] text-white pt-16 pb-8 mt-auto"
+            id="contacto">
+        <div className="max-w-6xl mx-auto px-6 grid md:grid-cols-3 gap-10">
+
+            {/* Información */}
+            <div>
+            <h3 className="text-xl font-semibold">Contáctanos</h3>
+            <p className="mt-4 text-gray-200">
+                Si deseas más información o tienes alguna consulta, puedes comunicarte
+                con nosotros en cualquier momento.
+            </p>
+
+            <div className="mt-4 space-y-2 text-gray-300">
+                <p><strong>Email 1:</strong> soporte@tuemi.com</p>
+                <p><strong>Email 2:</strong> contacto@tuemi.com</p>
+                <p><strong>Celular 1:</strong> +591 70000000</p>
+                <p><strong>Celular 2:</strong> +591 78888888</p>
+            </div>
+            </div>
+
+            {/* Redes sociales */}
+            <div>
+                <h3 className="text-xl font-semibold">Síguenos</h3>
+                <p className="mt-4 text-gray-200">Estamos presentes en diversas plataformas.</p>
+
+                <div className="flex flex-col mt-4 gap-4 text-gray-300">
+
+                    <a 
+                    href="#" 
+                    className="flex items-center gap-3 hover:text-white transition"
+                    >
+                    <FaFacebook size={24} />
+                    Facebook — TUEMI Oficial
+                    </a>
+
+                    <a 
+                    href="#" 
+                    className="flex items-center gap-3 hover:text-white transition"
+                    >
+                    <FaInstagram size={24} />
+                    Instagram — @tuemi_oficial
+                    </a>
+
+                    <a 
+                    href="#" 
+                    className="flex items-center gap-3 hover:text-white transition"
+                    >
+                    <FaWhatsapp size={24} />
+                    WhatsApp — Línea TUEMI
+                    </a>
+
+                </div>
+            </div>
+
+            {/* Logo + Sobre la empresa - CORREGIDO */}
+            <div className="flex flex-col items-start">
+            <Image
+                src="/img/logo_1.png"
+                width={80}
+                height={80}
+                alt="Logo TUEMI"
+                // CLASES CORREGIDAS: Eliminado "rounded-lg object-cover shadow-md"
+            />
+
+            <p className="mt-4 text-gray-300 text-sm">
+                Sistema T.U.E.M.I.<br />
+                Plataforma de monitoreo y gestión del transporte universitario EMI.
+            </p>
             </div>
         </div>
 
-        {/* --- LADO DERECHO (Formularios) --- */}
-        <div className="flex-1 p-8 sm:p-12 flex flex-col justify-center bg-white">
-            
-            <div className="lg:hidden flex flex-col items-center mb-8">
-                 <BusFront className="w-10 h-10 text-blue-600 mb-2" />
-                 <h2 className="text-2xl font-bold text-gray-900">T.U.E.M.I.</h2>
-            </div>
-
-            <Tabs defaultValue="login" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-8">
-                    <TabsTrigger value="login">Ingresar</TabsTrigger>
-                    <TabsTrigger value="register">Crear Cuenta</TabsTrigger>
-                </TabsList>
-
-                {/* --- FORMULARIO LOGIN --- */}
-                <TabsContent value="login">
-                    <div className="mb-6">
-                        <h2 className="text-3xl font-bold text-gray-900">Bienvenido</h2>
-                        <p className="text-gray-500 mt-2">Ingresa tus credenciales para acceder.</p>
-                    </div>
-                    
-                    <Form {...loginForm}>
-                        <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-5">
-                            <FormField control={loginForm.control} name="ci" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Carnet de Identidad</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder="Ej: 1234567" className="h-12 bg-gray-50" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-                            
-                            <FormField control={loginForm.control} name="password" render={({ field }) => (
-                                <FormItem>
-                                    <div className="flex justify-between items-center">
-                                        <FormLabel>Contraseña</FormLabel>
-                                        <a href="#" className="text-xs text-blue-600 hover:underline" onClick={(e) => {e.preventDefault(); alert("Contacta a soporte.")}}>¿Olvidaste tu contraseña?</a>
-                                    </div>
-                                    <FormControl>
-                                        <Input type="password" placeholder="••••••••" className="h-12 bg-gray-50" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-
-                            <Button type="submit" className="w-full h-12 text-lg bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all" disabled={isLoading}>
-                                {isLoading ? "Verificando..." : "Iniciar Sesión"}
-                            </Button>
-                        </form>
-                    </Form>
-                </TabsContent>
-
-                {/* --- FORMULARIO REGISTRO --- */}
-                <TabsContent value="register">
-                     <div className="mb-6">
-                        <h2 className="text-2xl font-bold text-gray-900">Registro Estudiantil</h2>
-                        <p className="text-gray-500 text-sm mt-1">Solo para estudiantes vigentes en lista oficial.</p>
-                    </div>
-
-                    <Form {...registerForm}>
-                        <form onSubmit={registerForm.handleSubmit(onRegister)} className="space-y-3">
-                            <div className="grid grid-cols-3 gap-2">
-                                <FormField control={registerForm.control} name="ci_numero" render={({ field }) => (
-                                    <FormItem className="col-span-2"><FormLabel>CI</FormLabel><FormControl><Input type="number" placeholder="1234567" {...field} /></FormControl><FormMessage /></FormItem>
-                                )} />
-                                <FormField control={registerForm.control} name="ci_extension" render={({ field }) => (
-                                    <FormItem><FormLabel>Ext</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{EXTENSIONES.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent></Select></FormItem>
-                                )} />
-                            </div>
-
-                            <FormField control={registerForm.control} name="nombres" render={({ field }) => (
-                                <FormItem><FormLabel>Nombres</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                            )} />
-                            
-                            <div className="grid grid-cols-2 gap-2">
-                                <FormField control={registerForm.control} name="paterno" render={({ field }) => (
-                                    <FormItem><FormLabel>Paterno</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                                )} />
-                                <FormField control={registerForm.control} name="materno" render={({ field }) => (
-                                    <FormItem><FormLabel>Materno</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                                )} />
-                            </div>
-
-                            <FormField control={registerForm.control} name="email" render={({ field }) => (
-                                <FormItem><FormLabel>Correo</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>
-                            )} />
-                            
-                            <div className="grid grid-cols-2 gap-2">
-                                <FormField control={registerForm.control} name="phone" render={({ field }) => (
-                                    <FormItem><FormLabel>Celular</FormLabel><FormControl><Input type="tel" {...field} /></FormControl><FormMessage /></FormItem>
-                                )} />
-                                <FormField control={registerForm.control} name="password" render={({ field }) => (
-                                    <FormItem><FormLabel>Contraseña</FormLabel><FormControl><Input type="password" {...field} /></FormControl><FormMessage /></FormItem>
-                                )} />
-                            </div>
-
-                            <FormField control={registerForm.control} name="terms" render={({ field }) => (
-                                <FormItem className="flex flex-row items-start space-x-3 space-y-0 py-2">
-                                    <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                                    <div className="space-y-1 leading-none">
-                                        <FormLabel className="text-xs font-normal">Acepto los términos y condiciones del servicio de transporte.</FormLabel>
-                                        <FormMessage />
-                                    </div>
-                                </FormItem>
-                            )} />
-
-                            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={isLoading}>
-                                {isLoading ? '...' : 'Crear Cuenta'}
-                            </Button>
-                        </form>
-                    </Form>
-                </TabsContent>
-            </Tabs>
+        {/* Línea final */}
+        <div className="text-center text-gray-300 text-sm mt-12 border-t border-gray-600 pt-6">
+            © {new Date().getFullYear()} TUEMI — Sistema de Transporte Universitario EMI<br />
+            Desarrollado por el equipo de Ingeniería de Sistemas.
         </div>
-      </div>
+        </footer>
+
     </div>
   );
 }
