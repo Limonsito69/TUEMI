@@ -16,7 +16,7 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { QrCode, RefreshCw, LogOut } from 'lucide-react';
 import type { User } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getUserProfile } from '@/lib/actions';
+import { getUserProfile, getCurrentUser } from '@/lib/actions';
 import { useRouter } from 'next/navigation';
 
 export default function StudentProfilePage() {
@@ -26,20 +26,16 @@ export default function StudentProfilePage() {
 
   // Función para cargar datos
   const loadProfile = React.useCallback(async () => {
-    // 1. Obtener ID de la sesión
-    const storedUser = sessionStorage.getItem('loggedInUser');
-    if (!storedUser) {
-        setIsLoading(false);
-        return;
-    }
-
+    setIsLoading(true);
     try {
-        const sessionData = JSON.parse(storedUser);
-        if (sessionData.id) {
-            // 2. Pedir datos frescos a la BD
-            const dbUser = await getUserProfile(sessionData.id);
-            setStudent(dbUser);
-        }
+      // 1. Pedir al servidor "quién soy" (En lugar de sessionStorage)
+      const sessionUser = await getCurrentUser();
+      
+      if (sessionUser && sessionUser.id) {
+          // 2. Pedir datos completos a la BD usando el ID de la sesión
+          const dbUser = await getUserProfile(sessionUser.id);
+          setStudent(dbUser);
+      }
     } catch (error) {
         console.error("Error cargando perfil", error);
     } finally {

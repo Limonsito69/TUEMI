@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Bell, Moon, Sun, Lock, CheckCircle } from 'lucide-react';
-import { changeStudentPassword } from '@/lib/actions';
+import { changeStudentPassword, getCurrentUser } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 
 export default function SettingsPage() {
@@ -24,12 +24,17 @@ export default function SettingsPage() {
   const [isDarkMode, setIsDarkMode] = React.useState(false);
 
   React.useEffect(() => {
-    const stored = sessionStorage.getItem('loggedInUser');
-    if (stored) {
-       const user = JSON.parse(stored);
-       setUserId(user.id);
+    async function loadUser() {
+      // Pedimos al servidor quién es el usuario actual de forma segura
+      const user = await getCurrentUser();
+      if (user) {
+         setUserId(user.id);
+      }
     }
-    // Chequear si el HTML tiene la clase dark
+    
+    loadUser();
+    
+    // Mantener la lógica del tema oscuro si la tenías
     setIsDarkMode(document.documentElement.classList.contains('dark'));
   }, []);
 

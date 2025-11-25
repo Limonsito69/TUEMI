@@ -14,6 +14,7 @@ import {
   User as UserIcon,
   KeyRound
 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -286,6 +287,7 @@ function ResetPasswordDialog({ user, isOpen, onClose }: { user: User, isOpen: bo
 
 // --- Formulario Añadir ---
 function AddUserForm({ setOpen, setUsers }: { setOpen: (open: boolean) => void, setUsers: React.Dispatch<React.SetStateAction<User[]>> }) {
+  const { toast } = useToast()
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: { nombres: "", paterno: "", materno: "", ci_numero: "", codigo_SAGA: "", ci_extension: "LP", phone: "" },
@@ -295,15 +297,28 @@ function AddUserForm({ setOpen, setUsers }: { setOpen: (open: boolean) => void, 
     try {
       const userData = { ...values, materno: values.materno || "" };
       const newUser = await createUser(userData);
+      
       if (newUser) {
         setUsers((prev) => [newUser, ...prev]);
-        alert('¡Usuario creado correctamente!');
+        
+        // 2. REEMPLAZAR ALERT POR TOAST DE ÉXITO
+        toast({
+          title: "¡Usuario creado!",
+          description: `${newUser.name} ha sido registrado exitosamente.`,
+          variant: "default", // Azul/Negro por defecto
+        });
+
         setOpen(false);
         form.reset();
       }
     } catch (error: any) {
       console.error(error);
-      alert(error.message || 'Error al guardar.');
+      // 3. REEMPLAZAR ALERT POR TOAST DE ERROR
+      toast({
+        title: "Error al crear",
+        description: error.message || 'Hubo un problema al guardar los datos.',
+        variant: "destructive", // Rojo para errores
+      });
     }
   }
 
@@ -375,7 +390,7 @@ function AddUserForm({ setOpen, setUsers }: { setOpen: (open: boolean) => void, 
 // --- Formulario Editar (Actualizado para Admin) ---
 function EditUserForm({ user, setOpen, setUsers }: { user: User, setOpen: (open: boolean) => void, setUsers: React.Dispatch<React.SetStateAction<User[]>> }) {
   
-  // 1. Actualizamos el esquema para validar también CI y SAGA
+  const { toast } = useToast();
   const editSchema = z.object({
       name: z.string().min(3, "Nombre requerido"),
       phone: z.string().min(8, "Celular requerido"),
@@ -395,16 +410,25 @@ function EditUserForm({ user, setOpen, setUsers }: { user: User, setOpen: (open:
 
   async function onSubmit(values: z.infer<typeof editSchema>) {
     try {
-      // Enviamos todos los nuevos valores al servidor
       const updatedUser = await updateUser({ ...user, ...values });
       if (updatedUser) {
         setUsers((prev) => prev.map(u => u.id === user.id ? updatedUser : u));
-        alert('¡Datos de usuario actualizados correctamente!');
+        
+        // 2. TOAST DE ÉXITO
+        toast({
+          title: "Datos actualizados",
+          description: `La información de ${updatedUser.name} se guardó correctamente.`,
+        });
+        
         setOpen(false);
       }
     } catch (error: any) {
-      console.error(error);
-      alert('Error al actualizar. Revisa la consola.');
+      // 3. TOAST DE ERROR
+      toast({
+        title: "Error de actualización",
+        description: "No se pudieron guardar los cambios. Intenta nuevamente.",
+        variant: "destructive",
+      });
     }
   }
 

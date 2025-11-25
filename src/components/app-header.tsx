@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import { reportLostItem } from '@/lib/actions';
+import { reportLostItem, logout } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 
 function getPathSegments(pathname: string) {
@@ -43,9 +43,9 @@ export function AppHeader() {
   const [lostItemRoute, setLostItemRoute] = React.useState("");
   const [isReporting, setIsReporting] = React.useState(false);
 
-  const handleLogout = () => {
-    if (typeof window !== 'undefined') sessionStorage.removeItem('loggedInUser');
-    router.push('/');
+  const handleLogout = async () => {
+    // Llamamos a la Server Action que borra la cookie real
+    await logout();
   };
 
   const handleReportLostItem = async (e: React.FormEvent) => {

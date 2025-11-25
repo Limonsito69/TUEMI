@@ -7,28 +7,32 @@ const config: sql.config = {
   port: parseInt(process.env.DB_PORT || '1433', 10),
   database: process.env.DB_NAME,
   options: {
-    // EN LA NUBE (Azure) debe ser true. EN LOCAL debe ser false.
-    // Si DB_ENCRYPT existe en las variables de entorno, lo usa. Si no, asume false (local).
     encrypt: process.env.DB_ENCRYPT === 'true', 
     trustServerCertificate: true, 
   },
 };
 
-let pool: sql.ConnectionPool | undefined;
+declare global {
+  var _pool: sql.ConnectionPool | undefined;
+}
 
 export async function getDbPool(): Promise<sql.ConnectionPool> {
-  if (!pool) {
-    try {
-      pool = new sql.ConnectionPool(config);
-      await pool.connect();
-      console.log('✅ Conectado a la Base de Datos');
-    } catch (err) {
-      console.error('❌ Error de conexión BD:', err);
-      pool = undefined;
-      throw err;
+  // Si ya existe una conexión global, la usamos (Evita reconectar en Hot Reload)
+  if (global._pool) return global._pool;
+
+  try {
+    const pool = await new sql.ConnectionPool(config).connect();
+    console.log('✅ Conectado a la Base de Datos');
+    
+    // Guardamos la conexión en global solo en desarrollo
+    if (process.env.NODE_ENV === 'development') {
+      global._pool = pool;
     }
+    return pool;
+  } catch (err) {
+    console.error('❌ Error de conexión BD:', err);
+    throw err;
   }
-  return pool;
 }
 
 export async function quickQuery(query: string) {

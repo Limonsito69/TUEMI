@@ -5,6 +5,8 @@ import { suggestAlternativeTransport, SuggestAlternativeTransportInput, SuggestA
 import { getDbPool } from '@/lib/db';
 import { User, Vehicle, Driver, Route, Trip } from '@/types';
 import sql from 'mssql';
+import { createSession, deleteSession, getSession } from '@/lib/session';
+import { redirect } from 'next/navigation'; 
 
 // --- TIPOS AUXILIARES ---
 type CreateUserInput = {
@@ -39,52 +41,90 @@ export type DashboardStats = {
 
 // --- AUTENTICACIÓN (CORREGIDA) ---
 
+// En src/lib/actions.ts
+
+// --- HELPERS DE SEGURIDAD ---
+
+async function requireAdmin() {
+  const session = await getSession();
+  if (!session || session.role !== 'admin') {
+    throw new Error('Acceso Denegado: Se requiere ser Administrador.');
+  }
+  return session; // Retorna la sesión por si necesitamos el ID del admin
+}
+
+async function requireDriver() {
+  const session = await getSession();
+  if (!session || session.role !== 'driver') {
+    throw new Error('Acceso Denegado: Se requiere ser Conductor.');
+  }
+  return session;
+}
+
+async function requireStudent() {
+  const session = await getSession();
+  if (!session || session.role !== 'student') {
+    throw new Error('Acceso Denegado: Se requiere ser Estudiante.');
+  }
+  return session;
+}
+
 export async function authenticate(ci: string, password: string = '123456') {
   try {
     // 1. ADMIN MAESTRO
     if (ci === 'admin' && password === 'admin123') {
-      return { success: true, user: { name: 'Administrador', id: 0 }, role: 'admin' };
+      // ¡AQUÍ ESTÁ EL CAMBIO! Creamos la sesión segura
+      await createSession(0, 'Administrador', 'admin');
+      return { success: true, role: 'admin' };
     }
 
     const pool = await getDbPool();
 
     // 2. BUSCAR CONDUCTOR
-    // IMPORTANTE: La tabla Drivers NO tiene 'ci_numero', solo 'ci'.
-    // Buscamos coincidencia exacta o si el CI empieza con el número ingresado (para flexibilidad)
     const driverResult = await pool.request()
       .input('ci', sql.NVarChar, ci)
       .query(`SELECT * FROM Drivers WHERE ci = @ci OR ci LIKE @ci + ' %'`);
+    
+    console.log("4. Búsqueda conductor terminada. Resultados:", driverResult.recordset.length); // <--- LOG 4
 
     if (driverResult.recordset.length > 0) {
       const driver = driverResult.recordset[0];
-      // Validar contraseña
-      const dbPass = driver.password || '123456'; // Si es NULL, usa default
+      const dbPass = driver.password || '123456';
+      
       if (dbPass !== password) return { success: false, message: 'Contraseña incorrecta.' };
       if (driver.status === 'Inactivo') return { success: false, message: 'Cuenta inactiva.' };
 
-      return { success: true, user: driver, role: 'driver' };
+      // CREAR SESIÓN CONDUCTOR
+      await createSession(driver.id, driver.name, 'driver');
+      return { success: true, role: 'driver' };
     }
 
-    // 3. BUSCAR ESTUDIANTE (USUARIO)
-    // La tabla Users SÍ tiene 'ci_numero', usamos ese para mayor precisión
+    // 3. BUSCAR ESTUDIANTE
+    console.log("5. Buscando estudiante..."); // <--- LOG 5
     const userResult = await pool.request()
       .input('ci', sql.NVarChar, ci)
       .query("SELECT * FROM Users WHERE ci_numero = @ci OR ci = @ci");
 
+    console.log("6. Búsqueda estudiante terminada. Resultados:", userResult.recordset.length); // <--- LOG 6
+
     if (userResult.recordset.length > 0) {
       const user = userResult.recordset[0];
-      const dbPass = user.password || '123456';
+      // Validar contraseña (asegúrate que la columna se llame 'password' en tu BD)
+      const dbPass = user.password || '123456'; 
 
       if (dbPass !== password) return { success: false, message: 'Contraseña incorrecta.' };
+      
+      // Verificar si la columna 'status' existe y es correcta
       if (user.status === 'Inactivo') return { success: false, message: 'Cuenta inactiva.' };
 
-      return { success: true, user: user, role: 'student' };
+      await createSession(user.id, user.name, 'student');
+      return { success: true, role: 'student' };
     }
 
-    return { success: false, message: 'Usuario no encontrado.' };
+    return { success: false, message: 'Usuario no encontrado.' }
 
   } catch (e) {
-    console.error("Error CRÍTICO en authenticate:", e);
+    console.error("Error CRÍTICO DETALLADO:", e); // <--- Ver el error real
     return { success: false, message: 'Error interno de base de datos.' };
   }
 }
@@ -155,6 +195,7 @@ async function logAudit(adminName: string, targetUserId: number | null, action: 
 // --- GESTIÓN DE USUARIOS ---
 
 export async function getUsers(): Promise<User[]> {
+  await requireAdmin();
   try {
     const pool = await getDbPool();
     const result = await pool.request().query('SELECT * FROM Users ORDER BY id DESC');
@@ -175,6 +216,7 @@ export async function getUserProfile(userId: number): Promise<User | null> {
 }
 
 export async function createUser(data: CreateUserInput): Promise<User | null> {
+  await requireAdmin();
   try {
     const pool = await getDbPool();
     const check = await pool.request().input('ci_numero', sql.NVarChar, data.ci_numero).query("SELECT id FROM Users WHERE ci_numero = @ci_numero");
@@ -218,9 +260,12 @@ export async function updateUser(user: User): Promise<User | null> {
 }
 
 export async function deleteUser(userId: number): Promise<boolean> {
+  const session = await requireAdmin(); // <--- 🔒 Guardamos la sesión para el log
   try {
     const pool = await getDbPool();
-    await logAudit('Admin', userId, 'ELIMINAR', 'Usuario eliminado permanentemente');
+    // Usamos el nombre real del admin logueado en lugar de "Admin" genérico
+    await logAudit(session.name, userId, 'ELIMINAR', 'Usuario eliminado permanentemente');
+    
     await pool.request().input('id', sql.Int, userId).query('DELETE FROM Users WHERE id = @id');
     return true;
   } catch (error) { return false; }
@@ -448,6 +493,7 @@ export async function simulateVehicleMovement(): Promise<void> {
 // --- REPORTES ---
 
 export async function getSystemStats(): Promise<DashboardStats> {
+  await requireAdmin();
   try {
     const pool = await getDbPool();
     const u = (await pool.request().query(`SELECT COUNT(*) as t, SUM(CASE WHEN status='Abonado' THEN 1 ELSE 0 END) as a, SUM(CASE WHEN status='No Abonado' THEN 1 ELSE 0 END) as n FROM Users`)).recordset[0];
@@ -486,4 +532,22 @@ export async function reportLostItem(userId: number, description: string, route:
     await pool.request().input('uid', sql.Int, userId).input('d', sql.NVarChar, description).input('r', sql.NVarChar, route).query("INSERT INTO LostAndFound (userId, description, route) VALUES (@uid, @d, @r)");
     return true;
   } catch { return false; }
+}
+
+export async function logout() {
+  await deleteSession();
+  redirect('/');
+}
+
+export async function getCurrentUser() {
+  const session = await getSession();
+  // Si no hay sesión, retornamos null
+  if (!session) return null;
+  
+  // Retornamos los datos básicos de la sesión (id, nombre, rol)
+  return {
+    id: session.id,
+    name: session.name,
+    role: session.role
+  };
 }

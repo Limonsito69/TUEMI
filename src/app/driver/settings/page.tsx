@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Moon, Sun, Bell } from 'lucide-react';
-import { changeDriverPassword } from '@/lib/actions';
+import { changeDriverPassword, getCurrentUser } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 
 export default function DriverSettingsPage() {
@@ -21,11 +21,16 @@ export default function DriverSettingsPage() {
   const [isDarkMode, setIsDarkMode] = React.useState(false);
 
   React.useEffect(() => {
-    const stored = sessionStorage.getItem('loggedInUser');
-    if (stored) {
-       const user = JSON.parse(stored);
-       if (user.role === 'driver') setUserId(user.id);
+    async function loadUser() {
+      const user = await getCurrentUser();
+      // Verificamos que sea conductor y obtenemos su ID
+      if (user && user.role === 'driver') {
+         setUserId(user.id);
+      }
     }
+    
+    loadUser();
+
     setIsDarkMode(document.documentElement.classList.contains('dark'));
   }, []);
 

@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { MapPin, Users, Play, Square, Navigation, AlertCircle, Radio } from 'lucide-react';
 import { format } from 'date-fns';
 import { Trip, Route, Vehicle } from '@/types';
-import { getDriverActiveTrip, getRoutes, getVehicles, startTrip, endTrip, updateTripLocation } from '@/lib/actions';
+import { getCurrentUser, getDriverActiveTrip, getRoutes, getVehicles, startTrip, endTrip, updateTripLocation } from '@/lib/actions';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 export default function DriverActiveRoutePage() {
@@ -29,11 +29,13 @@ export default function DriverActiveRoutePage() {
 
   // 1. Cargar sesión y datos
   React.useEffect(() => {
-    const storedUser = sessionStorage.getItem('loggedInUser');
-    if (storedUser) {
-      const user = JSON.parse(storedUser);
-      if (user.role === 'driver' && user.id) setDriverId(user.id);
+    async function init() {
+      const user = await getCurrentUser();
+      if (user && user.role === 'driver') {
+        setDriverId(user.id);
+      }
     }
+    init();
   }, []);
 
   const loadData = React.useCallback(async () => {
