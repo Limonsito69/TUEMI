@@ -3,13 +3,11 @@ export type User = {
   name: string;
   ci: string;
   phone: string;
-  status: 'Abonado' | 'No Abonado';
+  status: 'Abonado' | 'No Abonado' | 'Activo' | 'Inactivo'; // Actualizado para soportar ambos
   avatar: string;
   email?: string;
   assignedRouteId?: number | null;
-  // --- AGREGAMOS ESTO ---
   codigo_SAGA?: string; 
-  // ---------------------
   nombres?: string;
   paterno?: string;
   materno?: string;
@@ -66,8 +64,9 @@ export type Trip = {
   startTime: Date;
   endTime: Date | null;
   status: 'En curso' | 'Finalizado' | 'Pendiente';
-  passengersAbonado: number;
-  passengersNoAbonado: number;
+  // CAMBIO IMPORTANTE: Actualizamos a los nombres de la BD
+  PasajerosRegistrados: number; // Antes passengersAbonado
+  PasajerosInvitados: number;   // Antes passengersNoAbonado
   locationLat: number | null;
   locationLng: number | null;
 };

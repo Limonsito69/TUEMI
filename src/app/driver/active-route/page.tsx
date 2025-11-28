@@ -305,8 +305,10 @@ export default function DriverActiveRoutePage() {
           </div>
           <div>
             <p className="text-xs uppercase text-muted-foreground">Pasajeros</p>
+            {/* CORRECCIÓN AQUÍ 👇 */}
             <p className="text-2xl font-bold">
-              {activeTrip.passengersAbonado + activeTrip.passengersNoAbonado}
+              {(activeTrip.PasajerosRegistrados || 0) +
+                (activeTrip.PasajerosInvitados || 0)}
             </p>
           </div>
         </CardContent>
