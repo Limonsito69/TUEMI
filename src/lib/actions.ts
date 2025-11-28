@@ -1,4 +1,6 @@
 "use server";
+import { z } from 'zod'; // Asegúrate de importar Zod
+
 
 import {
   detectRouteIncident,
@@ -245,7 +247,6 @@ async function logAudit(
     console.error("Error guardando log de auditoría:", error);
   }
 }
-
 // --- GESTIÓN DE USUARIOS ---
 
 export async function getUsers(): Promise<User[]> {
@@ -615,66 +616,113 @@ export async function changeDriverPassword(
 
 // --- GESTIÓN DE RUTAS ---
 
+const RouteSchema = z.object({
+  name: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
+  type: z.enum(["Abonados", "Mixto"]),
+  // CORRECCIÓN CLAVE: .nullable().optional() permite guardar sin conductor/vehículo
+  driverId: z.number().nullable().optional(), 
+  vehicleId: z.number().nullable().optional(),
+  status: z.enum(["Publicada", "En borrador", "Inactiva"]),
+  schedule: z.string().min(1, "Horario requerido"),
+  stops: z.number().min(1, "Debe tener al menos 1 parada"),
+  waypoints: z.array(z.object({ lat: z.number(), lng: z.number() })).optional(),
+});
+
 export async function getRoutes(): Promise<Route[]> {
   try {
     const pool = await getDbPool();
-    return (await pool.request().query("SELECT * FROM Routes ORDER BY id DESC"))
-      .recordset as Route[];
-  } catch {
+    const result = await pool.request().query("SELECT * FROM Routes ORDER BY id DESC");
+    
+    // Convertimos el JSON de waypoints a objetos reales al leer
+    const routes = result.recordset.map((r: any) => ({
+      ...r,
+      waypoints: r.waypoints ? JSON.parse(r.waypoints) : []
+    }));
+
+    return routes as Route[];
+  } catch (error) {
+    console.error("Error obteniendo rutas:", error);
     return [];
   }
 }
 
-export async function createRoute(data: any): Promise<Route | null> {
+export async function createRoute(rawData: unknown): Promise<Route | null> {
+  await requireAdmin();
   try {
+    const data = RouteSchema.parse(rawData);
     const pool = await getDbPool();
-    const result = await pool
-      .request()
+    
+    // Convertimos waypoints a texto para guardar en SQL
+    const waypointsJson = data.waypoints ? JSON.stringify(data.waypoints) : '[]';
+
+    const result = await pool.request()
       .input("name", sql.NVarChar, data.name)
       .input("type", sql.NVarChar, data.type)
-      .input("driverId", sql.Int, data.driverId)
-      .input("vehicleId", sql.Int, data.vehicleId)
+      .input("driverId", sql.Int, data.driverId || null) // Aseguramos null si es undefined
+      .input("vehicleId", sql.Int, data.vehicleId || null)
       .input("status", sql.NVarChar, data.status)
       .input("schedule", sql.NVarChar, data.schedule)
       .input("stops", sql.Int, data.stops)
-      .query(
-        `INSERT INTO Routes (name, type, driverId, vehicleId, status, schedule, stops) OUTPUT INSERTED.* VALUES (@name, @type, @driverId, @vehicleId, @status, @schedule, @stops)`
-      );
-    return result.recordset[0] as Route;
-  } catch {
+      .input("waypoints", sql.NVarChar, waypointsJson)
+      .query(`
+        INSERT INTO Routes (name, type, driverId, vehicleId, status, schedule, stops, waypoints) 
+        OUTPUT INSERTED.* VALUES (@name, @type, @driverId, @vehicleId, @status, @schedule, @stops, @waypoints)
+      `);
+
+    if (result.recordset.length > 0) {
+        await logAudit('Admin', null, 'CREAR_RUTA', `Nueva ruta: ${data.name}`);
+        const newRoute = result.recordset[0];
+        return { ...newRoute, waypoints: JSON.parse(newRoute.waypoints || '[]') };
+    }
+    return null;
+  } catch (error) {
+    console.error("Error creando ruta:", error);
     return null;
   }
 }
 
-export async function updateRoute(route: any): Promise<Route | null> {
+export async function updateRoute(rawData: unknown): Promise<Route | null> {
+  await requireAdmin();
   try {
+    const UpdateRouteSchema = RouteSchema.extend({ id: z.number() });
+    const data = UpdateRouteSchema.parse(rawData);
     const pool = await getDbPool();
-    const result = await pool
-      .request()
-      .input("id", sql.Int, route.id)
-      .input("name", sql.NVarChar, route.name)
-      .input("type", sql.NVarChar, route.type)
-      .input("driverId", sql.Int, route.driverId)
-      .input("vehicleId", sql.Int, route.vehicleId)
-      .input("status", sql.NVarChar, route.status)
-      .input("schedule", sql.NVarChar, route.schedule)
-      .input("stops", sql.Int, route.stops)
-      .query(
-        `UPDATE Routes SET name=@name, type=@type, driverId=@driverId, vehicleId=@vehicleId, status=@status, schedule=@schedule, stops=@stops OUTPUT INSERTED.* WHERE id=@id`
-      );
-    return result.recordset[0] as Route;
-  } catch {
+    
+    const waypointsJson = data.waypoints ? JSON.stringify(data.waypoints) : '[]';
+
+    const result = await pool.request()
+      .input("id", sql.Int, data.id)
+      .input("name", sql.NVarChar, data.name)
+      .input("type", sql.NVarChar, data.type)
+      .input("driverId", sql.Int, data.driverId || null)
+      .input("vehicleId", sql.Int, data.vehicleId || null)
+      .input("status", sql.NVarChar, data.status)
+      .input("schedule", sql.NVarChar, data.schedule)
+      .input("stops", sql.Int, data.stops)
+      .input("waypoints", sql.NVarChar, waypointsJson)
+      .query(`
+        UPDATE Routes 
+        SET name=@name, type=@type, driverId=@driverId, vehicleId=@vehicleId, status=@status, schedule=@schedule, stops=@stops, waypoints=@waypoints
+        OUTPUT INSERTED.* WHERE id=@id
+      `);
+
+    if (result.recordset.length > 0) {
+        await logAudit('Admin', null, 'EDITAR_RUTA', `Actualizó ruta: ${data.name}`);
+        const updated = result.recordset[0];
+        return { ...updated, waypoints: JSON.parse(updated.waypoints || '[]') };
+    }
+    return null;
+  } catch (error) {
+    console.error("Error actualizando ruta:", error);
     return null;
   }
 }
 
 export async function deleteRoute(id: number): Promise<boolean> {
   try {
+    await requireAdmin();
     const pool = await getDbPool();
-    await pool
-      .request()
-      .input("id", sql.Int, id)
-      .query("DELETE FROM Routes WHERE id = @id");
+    await pool.request().input("id", sql.Int, id).query("DELETE FROM Routes WHERE id = @id");
     return true;
   } catch {
     return false;

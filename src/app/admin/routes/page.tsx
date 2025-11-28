@@ -20,7 +20,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -35,7 +34,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -54,18 +52,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Route, Driver, Vehicle } from '@/types';
 import { getRoutes, getDrivers, getVehicles, createRoute, updateRoute, deleteRoute } from '@/lib/actions';
 
-// --- Esquema de Validación ---
+// --- Esquema de Validación (Frontend) ---
 const formSchema = z.object({
   name: z.string().min(3, "Nombre requerido."),
   type: z.enum(["Abonados", "Mixto"]),
-  driverId: z.string().min(1, "Seleccione un conductor."), // Usamos string en el form para el Select, luego convertimos
-  vehicleId: z.string().min(1, "Seleccione un vehículo."),
+  // Opcionales para el formulario
+  driverId: z.string().optional(), 
+  vehicleId: z.string().optional(),
   status: z.enum(["Publicada", "En borrador", "Inactiva"]),
   schedule: z.string().min(1, "Horario requerido."),
   stops: z.coerce.number().min(1, "Mínimo 1 parada."),
 });
 
-// --- Props compartidos para los formularios ---
 type RouteFormProps = {
   drivers: Driver[];
   vehicles: Vehicle[];
@@ -90,15 +88,22 @@ function AddRouteForm({ drivers, vehicles, setOpen, setRoutes }: RouteFormProps)
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
+      // Convertimos cadena vacía a NULL
+      const driverId = values.driverId && values.driverId !== "" ? parseInt(values.driverId) : null;
+      const vehicleId = values.vehicleId && values.vehicleId !== "" ? parseInt(values.vehicleId) : null;
+
       const newRoute = await createRoute({
         ...values,
-        driverId: parseInt(values.driverId),
-        vehicleId: parseInt(values.vehicleId),
+        driverId,
+        vehicleId,
       });
+
       if (newRoute) {
         setRoutes((prev) => [newRoute, ...prev]);
         alert('¡Ruta creada!');
         setOpen(false);
+      } else {
+        alert('Error: No se pudo crear la ruta (Validación fallida)');
       }
     } catch (error) {
       console.error(error);
@@ -127,7 +132,7 @@ function AddRouteForm({ drivers, vehicles, setOpen, setRoutes }: RouteFormProps)
           <div className="grid grid-cols-2 gap-4">
              <FormField control={form.control} name="driverId" render={({ field }) => (
               <FormItem>
-                <FormLabel>Conductor</FormLabel>
+                <FormLabel>Conductor (Opcional)</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
                   <SelectContent>
@@ -139,7 +144,7 @@ function AddRouteForm({ drivers, vehicles, setOpen, setRoutes }: RouteFormProps)
             )} />
              <FormField control={form.control} name="vehicleId" render={({ field }) => (
               <FormItem>
-                <FormLabel>Vehículo</FormLabel>
+                <FormLabel>Vehículo (Opcional)</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
                   <SelectContent>
@@ -187,8 +192,8 @@ function EditRouteForm({ route, drivers, vehicles, setOpen, setRoutes }: { route
     defaultValues: {
       name: route.name,
       type: route.type,
-      driverId: route.driverId.toString(),
-      vehicleId: route.vehicleId.toString(),
+      driverId: route.driverId?.toString() || "",
+      vehicleId: route.vehicleId?.toString() || "",
       status: route.status,
       schedule: route.schedule,
       stops: route.stops,
@@ -197,16 +202,22 @@ function EditRouteForm({ route, drivers, vehicles, setOpen, setRoutes }: { route
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
+      const driverId = values.driverId && values.driverId !== "" ? parseInt(values.driverId) : null;
+      const vehicleId = values.vehicleId && values.vehicleId !== "" ? parseInt(values.vehicleId) : null;
+
       const updatedRoute = await updateRoute({
         ...route,
         ...values,
-        driverId: parseInt(values.driverId),
-        vehicleId: parseInt(values.vehicleId),
+        driverId,
+        vehicleId,
       });
+
       if (updatedRoute) {
         setRoutes((prev) => prev.map((r) => (r.id === route.id ? updatedRoute : r)));
         alert('¡Ruta actualizada!');
         setOpen(false);
+      } else {
+        alert('Error al actualizar (Verifique conexión o datos)');
       }
     } catch (error) {
       console.error(error);
@@ -218,7 +229,6 @@ function EditRouteForm({ route, drivers, vehicles, setOpen, setRoutes }: { route
      <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <DialogHeader><DialogTitle>Editar Ruta</DialogTitle></DialogHeader>
-        {/* Mismo contenido del formulario que AddRouteForm */}
          <div className="grid gap-4 py-4">
           <FormField control={form.control} name="name" render={({ field }) => (
             <FormItem><FormLabel>Nombre</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
@@ -238,7 +248,7 @@ function EditRouteForm({ route, drivers, vehicles, setOpen, setRoutes }: { route
               <FormItem>
                 <FormLabel>Conductor</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                  <FormControl><SelectTrigger><SelectValue placeholder="Sin asignar" /></SelectTrigger></FormControl>
                   <SelectContent>
                     {drivers.map(d => <SelectItem key={d.id} value={d.id.toString()}>{d.name}</SelectItem>)}
                   </SelectContent>
@@ -250,7 +260,7 @@ function EditRouteForm({ route, drivers, vehicles, setOpen, setRoutes }: { route
               <FormItem>
                 <FormLabel>Vehículo</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                  <FormControl><SelectTrigger><SelectValue placeholder="Sin asignar" /></SelectTrigger></FormControl>
                   <SelectContent>
                     {vehicles.map(v => <SelectItem key={v.id} value={v.id.toString()}>{v.plate}</SelectItem>)}
                   </SelectContent>
@@ -289,7 +299,6 @@ function EditRouteForm({ route, drivers, vehicles, setOpen, setRoutes }: { route
   );
 }
 
-// --- Componente: Acciones ---
 const RouteActionsCell = ({ route, drivers, vehicles, setRoutes }: { route: Route } & RouteFormProps) => {
   const [isEditOpen, setIsEditOpen] = React.useState(false);
 
@@ -319,7 +328,6 @@ const RouteActionsCell = ({ route, drivers, vehicles, setRoutes }: { route: Rout
   );
 };
 
-// --- Página Principal ---
 export default function RoutesPage() {
   const [routes, setRoutes] = React.useState<Route[]>([]);
   const [drivers, setDrivers] = React.useState<Driver[]>([]);
