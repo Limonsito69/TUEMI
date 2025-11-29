@@ -618,8 +618,8 @@ export async function changeDriverPassword(
 
 const RouteSchema = z.object({
   name: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
-  type: z.enum(["Abonados", "Mixto"]),
-  // CORRECCIÓN CLAVE: .nullable().optional() permite guardar sin conductor/vehículo
+  // IMPORTANTE: Agregamos 'Regular' porque la base de datos ahora usa ese valor
+  Categoria: z.enum(["Abonados", "Mixto", "Regular"]), 
   driverId: z.number().nullable().optional(), 
   vehicleId: z.number().nullable().optional(),
   status: z.enum(["Publicada", "En borrador", "Inactiva"]),
@@ -631,15 +631,13 @@ const RouteSchema = z.object({
 export async function getRoutes(): Promise<Route[]> {
   try {
     const pool = await getDbPool();
+    // La consulta SQL traerá automáticamente la columna 'Categoria' si existe en la BD
     const result = await pool.request().query("SELECT * FROM Routes ORDER BY id DESC");
     
-    // Convertimos el JSON de waypoints a objetos reales al leer
-    const routes = result.recordset.map((r: any) => ({
+    return result.recordset.map((r: any) => ({
       ...r,
       waypoints: r.waypoints ? JSON.parse(r.waypoints) : []
-    }));
-
-    return routes as Route[];
+    })) as Route[];
   } catch (error) {
     console.error("Error obteniendo rutas:", error);
     return [];
@@ -651,26 +649,24 @@ export async function createRoute(rawData: unknown): Promise<Route | null> {
   try {
     const data = RouteSchema.parse(rawData);
     const pool = await getDbPool();
-    
-    // Convertimos waypoints a texto para guardar en SQL
     const waypointsJson = data.waypoints ? JSON.stringify(data.waypoints) : '[]';
 
+    // CORRECCIÓN: Usamos @cat y la columna Categoria
     const result = await pool.request()
       .input("name", sql.NVarChar, data.name)
-      .input("type", sql.NVarChar, data.type)
-      .input("driverId", sql.Int, data.driverId || null) // Aseguramos null si es undefined
+      .input("cat", sql.NVarChar, data.Categoria) 
+      .input("driverId", sql.Int, data.driverId || null)
       .input("vehicleId", sql.Int, data.vehicleId || null)
       .input("status", sql.NVarChar, data.status)
       .input("schedule", sql.NVarChar, data.schedule)
       .input("stops", sql.Int, data.stops)
       .input("waypoints", sql.NVarChar, waypointsJson)
       .query(`
-        INSERT INTO Routes (name, type, driverId, vehicleId, status, schedule, stops, waypoints) 
-        OUTPUT INSERTED.* VALUES (@name, @type, @driverId, @vehicleId, @status, @schedule, @stops, @waypoints)
+        INSERT INTO Routes (name, Categoria, driverId, vehicleId, status, schedule, stops, waypoints) 
+        OUTPUT INSERTED.* VALUES (@name, @cat, @driverId, @vehicleId, @status, @schedule, @stops, @waypoints)
       `);
 
     if (result.recordset.length > 0) {
-        await logAudit('Admin', null, 'CREAR_RUTA', `Nueva ruta: ${data.name}`);
         const newRoute = result.recordset[0];
         return { ...newRoute, waypoints: JSON.parse(newRoute.waypoints || '[]') };
     }
@@ -687,13 +683,13 @@ export async function updateRoute(rawData: unknown): Promise<Route | null> {
     const UpdateRouteSchema = RouteSchema.extend({ id: z.number() });
     const data = UpdateRouteSchema.parse(rawData);
     const pool = await getDbPool();
-    
     const waypointsJson = data.waypoints ? JSON.stringify(data.waypoints) : '[]';
 
+    // CORRECCIÓN: UPDATE apuntando a la columna Categoria
     const result = await pool.request()
       .input("id", sql.Int, data.id)
       .input("name", sql.NVarChar, data.name)
-      .input("type", sql.NVarChar, data.type)
+      .input("cat", sql.NVarChar, data.Categoria) 
       .input("driverId", sql.Int, data.driverId || null)
       .input("vehicleId", sql.Int, data.vehicleId || null)
       .input("status", sql.NVarChar, data.status)
@@ -702,12 +698,11 @@ export async function updateRoute(rawData: unknown): Promise<Route | null> {
       .input("waypoints", sql.NVarChar, waypointsJson)
       .query(`
         UPDATE Routes 
-        SET name=@name, type=@type, driverId=@driverId, vehicleId=@vehicleId, status=@status, schedule=@schedule, stops=@stops, waypoints=@waypoints
+        SET name=@name, Categoria=@cat, driverId=@driverId, vehicleId=@vehicleId, status=@status, schedule=@schedule, stops=@stops, waypoints=@waypoints
         OUTPUT INSERTED.* WHERE id=@id
       `);
 
     if (result.recordset.length > 0) {
-        await logAudit('Admin', null, 'EDITAR_RUTA', `Actualizó ruta: ${data.name}`);
         const updated = result.recordset[0];
         return { ...updated, waypoints: JSON.parse(updated.waypoints || '[]') };
     }

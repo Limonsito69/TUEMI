@@ -1,9 +1,9 @@
-// src/lib/data.ts
-import { User, Vehicle, Driver, Route, Alert, Trip } from '@/types';
+import { User, Vehicle, Driver, Route, Trip } from '@/types';
 
 export const mockUsers: User[] = [
-  { id: 1, name: 'Ana Pérez', ci: '1234567 LP', phone: '+591 71234567', status: 'Abonado', avatar: 'user1' },
-  { id: 2, name: 'Luis Gutiérrez', ci: '2345678 CB', phone: '+591 72345678', status: 'No Abonado', avatar: 'user2' },
+  // Actualizamos status a los nuevos valores 'Activo'/'Inactivo'
+  { id: 1, name: 'Ana Pérez', ci: '1234567 LP', phone: '+591 71234567', status: 'Activo', avatar: 'user1' },
+  { id: 2, name: 'Luis Gutiérrez', ci: '2345678 CB', phone: '+591 72345678', status: 'Inactivo', avatar: 'user2' },
 ];
 
 export const mockVehicles: Vehicle[] = [
@@ -20,12 +20,12 @@ export const mockDrivers: Driver[] = [
 ];
 
 export const mockRoutes: Route[] = [
-  { id: 1, name: 'Ruta Irpavi – EMI', type: 'Mixto', driverId: 1, vehicleId: 1, status: 'Publicada', schedule: '07:30 AM', stops: 12 },
-  { id: 2, name: 'Ruta Centro – EMI', type: 'Abonados', driverId: 3, vehicleId: 3, status: 'Publicada', schedule: '08:00 AM', stops: 8 },
-  { id: 3, name: 'Ruta Sopocachi – EMI', type: 'Mixto', driverId: 1, vehicleId: 4, status: 'En borrador', schedule: '18:00 PM', stops: 15 },
+  // CORRECCIÓN: Cambiamos 'type' por 'Categoria'
+  { id: 1, name: 'Ruta Irpavi – EMI', Categoria: 'Mixto', driverId: 1, vehicleId: 1, status: 'Publicada', schedule: '07:30 AM', stops: 12 },
+  { id: 2, name: 'Ruta Centro – EMI', Categoria: 'Abonados', driverId: 3, vehicleId: 3, status: 'Publicada', schedule: '08:00 AM', stops: 8 },
+  { id: 3, name: 'Ruta Sopocachi – EMI', Categoria: 'Mixto', driverId: 1, vehicleId: 4, status: 'En borrador', schedule: '18:00 PM', stops: 15 },
 ];
 
-// --- IMPORTANTE: Definimos mockTrips con la ubicación correcta ---
 export const mockTrips: Trip[] = [
     { 
       id: 1, 
@@ -34,8 +34,9 @@ export const mockTrips: Trip[] = [
       vehicleId: 1, 
       startTime: new Date('2024-07-28T12:30:00Z'), 
       endTime: null, 
-      passengersAbonado: 10,
-      passengersNoAbonado: 3, 
+      // CORRECCIÓN: Cambiamos los nombres de las columnas de pasajeros
+      PasajerosRegistrados: 10, // Antes passengersAbonado
+      PasajerosInvitados: 3,    // Antes passengersNoAbonado
       status: 'En curso',
       locationLat: -16.523, 
       locationLng: -68.08
@@ -47,8 +48,9 @@ export const mockTrips: Trip[] = [
       vehicleId: 3, 
       startTime: new Date('2024-07-28T12:40:00Z'), 
       endTime: null, 
-      passengersAbonado: 8,
-      passengersNoAbonado: 0, 
+      // CORRECCIÓN: Cambiamos los nombres de las columnas de pasajeros
+      PasajerosRegistrados: 8,
+      PasajerosInvitados: 0,
       status: 'En curso',
       locationLat: -16.515, 
       locationLng: -68.10

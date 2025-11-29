@@ -82,7 +82,7 @@ export default function ReportsPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Abonados Activos</CardTitle>
+            <CardTitle className="text-sm font-medium">Activos</CardTitle>
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -148,7 +148,7 @@ export default function ReportsPage() {
         <Card className="col-span-3">
           <CardHeader>
             <CardTitle>Distribución de Usuarios</CardTitle>
-            <CardDescription>Proporción Abonados vs. No Abonados</CardDescription>
+            <CardDescription>Proporción Activados vs. No Desactivados</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[300px] w-full flex justify-center relative">
@@ -182,10 +182,10 @@ export default function ReportsPage() {
             </div>
             <div className="flex justify-center gap-4 text-sm mt-4">
                 <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-primary" /> Abonados
+                    <div className="w-3 h-3 rounded-full bg-primary" /> activados
                 </div>
                 <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-muted" /> No Abonados
+                    <div className="w-3 h-3 rounded-full bg-muted" /> Desactivados
                 </div>
             </div>
           </CardContent>

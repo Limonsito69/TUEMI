@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import * as React from 'react';
-import { MoreHorizontal, PlusCircle, Pencil, Trash } from 'lucide-react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import * as React from "react";
+import { MoreHorizontal, PlusCircle, Pencil, Trash } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -15,14 +15,14 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
+} from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from "@/components/ui/dropdown-menu";
 import {
   Table,
   TableBody,
@@ -30,7 +30,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
+} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -38,7 +38,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -46,18 +46,31 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Route, Driver, Vehicle } from '@/types';
-import { getRoutes, getDrivers, getVehicles, createRoute, updateRoute, deleteRoute } from '@/lib/actions';
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Route, Driver, Vehicle } from "@/types";
+import {
+  getRoutes,
+  getDrivers,
+  getVehicles,
+  createRoute,
+  updateRoute,
+  deleteRoute,
+} from "@/lib/actions";
 
 // --- Esquema de Validación (Frontend) ---
 const formSchema = z.object({
   name: z.string().min(3, "Nombre requerido."),
-  type: z.enum(["Abonados", "Mixto"]),
-  // Opcionales para el formulario
-  driverId: z.string().optional(), 
+  // IMPORTANTE: Debe coincidir con la BD. Agrega 'Regular'.
+  Categoria: z.enum(["Abonados", "Mixto", "Regular"]),
+  driverId: z.string().optional(),
   vehicleId: z.string().optional(),
   status: z.enum(["Publicada", "En borrador", "Inactiva"]),
   schedule: z.string().min(1, "Horario requerido."),
@@ -72,12 +85,17 @@ type RouteFormProps = {
 };
 
 // --- Componente: Añadir Ruta ---
-function AddRouteForm({ drivers, vehicles, setOpen, setRoutes }: RouteFormProps) {
+function AddRouteForm({
+  drivers,
+  vehicles,
+  setOpen,
+  setRoutes,
+}: RouteFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
-      type: "Mixto",
+      Categoria: "Regular",
       driverId: "",
       vehicleId: "",
       status: "En borrador",
@@ -89,8 +107,14 @@ function AddRouteForm({ drivers, vehicles, setOpen, setRoutes }: RouteFormProps)
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
       // Convertimos cadena vacía a NULL
-      const driverId = values.driverId && values.driverId !== "" ? parseInt(values.driverId) : null;
-      const vehicleId = values.vehicleId && values.vehicleId !== "" ? parseInt(values.vehicleId) : null;
+      const driverId =
+        values.driverId && values.driverId !== ""
+          ? parseInt(values.driverId)
+          : null;
+      const vehicleId =
+        values.vehicleId && values.vehicleId !== ""
+          ? parseInt(values.vehicleId)
+          : null;
 
       const newRoute = await createRoute({
         ...values,
@@ -100,98 +124,198 @@ function AddRouteForm({ drivers, vehicles, setOpen, setRoutes }: RouteFormProps)
 
       if (newRoute) {
         setRoutes((prev) => [newRoute, ...prev]);
-        alert('¡Ruta creada!');
+        alert("¡Ruta creada!");
         setOpen(false);
       } else {
-        alert('Error: No se pudo crear la ruta (Validación fallida)');
+        alert("Error: No se pudo crear la ruta (Validación fallida)");
       }
     } catch (error) {
       console.error(error);
-      alert('Error al crear ruta.');
+      alert("Error al crear ruta.");
     }
   }
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <DialogHeader><DialogTitle>Nueva Ruta</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>Nueva Ruta</DialogTitle>
+        </DialogHeader>
         <div className="grid gap-4 py-4">
-          <FormField control={form.control} name="name" render={({ field }) => (
-            <FormItem><FormLabel>Nombre</FormLabel><FormControl><Input placeholder="Ej: Ruta Irpavi" {...field} /></FormControl><FormMessage /></FormItem>
-          )} />
-          
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Nombre</FormLabel>
+                <FormControl>
+                  <Input placeholder="Ej: Ruta Irpavi" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
           <div className="grid grid-cols-2 gap-4">
-             <FormField control={form.control} name="schedule" render={({ field }) => (
-              <FormItem><FormLabel>Horario</FormLabel><FormControl><Input placeholder="07:30 AM" {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="stops" render={({ field }) => (
-              <FormItem><FormLabel>Paradas</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
+            <FormField
+              control={form.control}
+              name="schedule"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Horario</FormLabel>
+                  <FormControl>
+                    <Input placeholder="07:30 AM" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="stops"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Paradas</FormLabel>
+                  <FormControl>
+                    <Input type="number" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-             <FormField control={form.control} name="driverId" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Conductor (Opcional)</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
-                  <SelectContent>
-                    {drivers.map(d => <SelectItem key={d.id} value={d.id.toString()}>{d.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )} />
-             <FormField control={form.control} name="vehicleId" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Vehículo (Opcional)</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
-                  <SelectContent>
-                    {vehicles.map(v => <SelectItem key={v.id} value={v.id.toString()}>{v.plate}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )} />
+            <FormField
+              control={form.control}
+              name="driverId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Conductor (Opcional)</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {drivers.map((d) => (
+                        <SelectItem key={d.id} value={d.id.toString()}>
+                          {d.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="vehicleId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Vehículo (Opcional)</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {vehicles.map((v) => (
+                        <SelectItem key={v.id} value={v.id.toString()}>
+                          {v.plate}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
 
-           <div className="grid grid-cols-2 gap-4">
-             <FormField control={form.control} name="type" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Tipo</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                  <SelectContent><SelectItem value="Abonados">Abonados</SelectItem><SelectItem value="Mixto">Mixto</SelectItem></SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )} />
-             <FormField control={form.control} name="status" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Estado</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                  <SelectContent><SelectItem value="Publicada">Publicada</SelectItem><SelectItem value="En borrador">En borrador</SelectItem><SelectItem value="Inactiva">Inactiva</SelectItem></SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )} />
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="Categoria"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tipo / Categoría</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="Regular">Regular</SelectItem>
+                      <SelectItem value="Abonados">Activados</SelectItem>
+                      <SelectItem value="Mixto">Mixto</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Estado</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="Publicada">Publicada</SelectItem>
+                      <SelectItem value="En borrador">En borrador</SelectItem>
+                      <SelectItem value="Inactiva">Inactiva</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
         </div>
-        <DialogFooter><Button type="submit">Guardar</Button></DialogFooter>
+        <DialogFooter>
+          <Button type="submit">Guardar</Button>
+        </DialogFooter>
       </form>
     </Form>
   );
 }
 
 // --- Componente: Editar Ruta ---
-function EditRouteForm({ route, drivers, vehicles, setOpen, setRoutes }: { route: Route } & RouteFormProps) {
+function EditRouteForm({
+  route,
+  drivers,
+  vehicles,
+  setOpen,
+  setRoutes,
+}: { route: Route } & RouteFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: route.name,
-      type: route.type,
+      Categoria: (route.Categoria as "Abonados" | "Mixto" | "Regular") || "Regular",
       driverId: route.driverId?.toString() || "",
       vehicleId: route.vehicleId?.toString() || "",
       status: route.status,
@@ -202,8 +326,14 @@ function EditRouteForm({ route, drivers, vehicles, setOpen, setRoutes }: { route
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      const driverId = values.driverId && values.driverId !== "" ? parseInt(values.driverId) : null;
-      const vehicleId = values.vehicleId && values.vehicleId !== "" ? parseInt(values.vehicleId) : null;
+      const driverId =
+        values.driverId && values.driverId !== ""
+          ? parseInt(values.driverId)
+          : null;
+      const vehicleId =
+        values.vehicleId && values.vehicleId !== ""
+          ? parseInt(values.vehicleId)
+          : null;
 
       const updatedRoute = await updateRoute({
         ...route,
@@ -213,93 +343,193 @@ function EditRouteForm({ route, drivers, vehicles, setOpen, setRoutes }: { route
       });
 
       if (updatedRoute) {
-        setRoutes((prev) => prev.map((r) => (r.id === route.id ? updatedRoute : r)));
-        alert('¡Ruta actualizada!');
+        setRoutes((prev) =>
+          prev.map((r) => (r.id === route.id ? updatedRoute : r))
+        );
+        alert("¡Ruta actualizada!");
         setOpen(false);
       } else {
-        alert('Error al actualizar (Verifique conexión o datos)');
+        alert("Error al actualizar (Verifique conexión o datos)");
       }
     } catch (error) {
       console.error(error);
-      alert('Error al actualizar.');
+      alert("Error al actualizar.");
     }
   }
 
   return (
-     <Form {...form}>
+    <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <DialogHeader><DialogTitle>Editar Ruta</DialogTitle></DialogHeader>
-         <div className="grid gap-4 py-4">
-          <FormField control={form.control} name="name" render={({ field }) => (
-            <FormItem><FormLabel>Nombre</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-          )} />
-          
+        <DialogHeader>
+          <DialogTitle>Editar Ruta</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Nombre</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
           <div className="grid grid-cols-2 gap-4">
-             <FormField control={form.control} name="schedule" render={({ field }) => (
-              <FormItem><FormLabel>Horario</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="stops" render={({ field }) => (
-              <FormItem><FormLabel>Paradas</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
+            <FormField
+              control={form.control}
+              name="schedule"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Horario</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="stops"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Paradas</FormLabel>
+                  <FormControl>
+                    <Input type="number" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-             <FormField control={form.control} name="driverId" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Conductor</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl><SelectTrigger><SelectValue placeholder="Sin asignar" /></SelectTrigger></FormControl>
-                  <SelectContent>
-                    {drivers.map(d => <SelectItem key={d.id} value={d.id.toString()}>{d.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )} />
-             <FormField control={form.control} name="vehicleId" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Vehículo</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl><SelectTrigger><SelectValue placeholder="Sin asignar" /></SelectTrigger></FormControl>
-                  <SelectContent>
-                    {vehicles.map(v => <SelectItem key={v.id} value={v.id.toString()}>{v.plate}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )} />
+            <FormField
+              control={form.control}
+              name="driverId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Conductor</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sin asignar" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {drivers.map((d) => (
+                        <SelectItem key={d.id} value={d.id.toString()}>
+                          {d.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="vehicleId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Vehículo</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sin asignar" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {vehicles.map((v) => (
+                        <SelectItem key={v.id} value={v.id.toString()}>
+                          {v.plate}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
 
-           <div className="grid grid-cols-2 gap-4">
-             <FormField control={form.control} name="type" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Tipo</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                  <SelectContent><SelectItem value="Abonados">Abonados</SelectItem><SelectItem value="Mixto">Mixto</SelectItem></SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )} />
-             <FormField control={form.control} name="status" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Estado</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                  <SelectContent><SelectItem value="Publicada">Publicada</SelectItem><SelectItem value="En borrador">En borrador</SelectItem><SelectItem value="Inactiva">Inactiva</SelectItem></SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )} />
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="Categoria"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tipo</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="Abonados">Activados</SelectItem>
+                      <SelectItem value="Mixto">Mixto</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Estado</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="Publicada">Publicada</SelectItem>
+                      <SelectItem value="En borrador">En borrador</SelectItem>
+                      <SelectItem value="Inactiva">Inactiva</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
         </div>
-        <DialogFooter><Button type="submit">Guardar Cambios</Button></DialogFooter>
+        <DialogFooter>
+          <Button type="submit">Guardar Cambios</Button>
+        </DialogFooter>
       </form>
     </Form>
   );
 }
 
-const RouteActionsCell = ({ route, drivers, vehicles, setRoutes }: { route: Route } & RouteFormProps) => {
+const RouteActionsCell = ({
+  route,
+  drivers,
+  vehicles,
+  setRoutes,
+}: { route: Route } & RouteFormProps) => {
   const [isEditOpen, setIsEditOpen] = React.useState(false);
 
   const handleDelete = async () => {
@@ -312,16 +542,30 @@ const RouteActionsCell = ({ route, drivers, vehicles, setRoutes }: { route: Rout
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger asChild><Button size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+        <DropdownMenuTrigger asChild>
+          <Button size="icon" variant="ghost">
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => setIsEditOpen(true)}><Pencil className="mr-2 h-4 w-4" /> Editar</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setIsEditOpen(true)}>
+            <Pencil className="mr-2 h-4 w-4" /> Editar
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleDelete} className="text-red-600"><Trash className="mr-2 h-4 w-4" /> Eliminar</DropdownMenuItem>
+          <DropdownMenuItem onClick={handleDelete} className="text-red-600">
+            <Trash className="mr-2 h-4 w-4" /> Eliminar
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent className="sm:max-w-[500px]">
-          <EditRouteForm route={route} drivers={drivers} vehicles={vehicles} setOpen={setIsEditOpen} setRoutes={setRoutes} />
+          <EditRouteForm
+            route={route}
+            drivers={drivers}
+            vehicles={vehicles}
+            setOpen={setIsEditOpen}
+            setRoutes={setRoutes}
+          />
         </DialogContent>
       </Dialog>
     </>
@@ -338,7 +582,11 @@ export default function RoutesPage() {
   React.useEffect(() => {
     async function loadData() {
       setIsLoading(true);
-      const [r, d, v] = await Promise.all([getRoutes(), getDrivers(), getVehicles()]);
+      const [r, d, v] = await Promise.all([
+        getRoutes(),
+        getDrivers(),
+        getVehicles(),
+      ]);
       setRoutes(r);
       setDrivers(d);
       setVehicles(v);
@@ -351,7 +599,9 @@ export default function RoutesPage() {
     <Card>
       <CardHeader>
         <CardTitle>Gestión de Rutas</CardTitle>
-        <CardDescription>Crea y administra las rutas de transporte.</CardDescription>
+        <CardDescription>
+          Crea y administra las rutas de transporte.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <Table>
@@ -362,29 +612,51 @@ export default function RoutesPage() {
               <TableHead>Conductor</TableHead>
               <TableHead>Vehículo</TableHead>
               <TableHead>Estado</TableHead>
-              <TableHead><span className="sr-only">Acciones</span></TableHead>
+              <TableHead>
+                <span className="sr-only">Acciones</span>
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={6} className="h-24 text-center">Cargando rutas...</TableCell></TableRow>
+              <TableRow>
+                <TableCell colSpan={6} className="h-24 text-center">
+                  Cargando rutas...
+                </TableCell>
+              </TableRow>
             ) : routes.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="h-24 text-center">No hay rutas.</TableCell></TableRow>
+              <TableRow>
+                <TableCell colSpan={6} className="h-24 text-center">
+                  No hay rutas.
+                </TableCell>
+              </TableRow>
             ) : (
               routes.map((route) => {
-                const driver = drivers.find(d => d.id === route.driverId);
-                const vehicle = vehicles.find(v => v.id === route.vehicleId);
+                const driver = drivers.find((d) => d.id === route.driverId);
+                const vehicle = vehicles.find((v) => v.id === route.vehicleId);
                 return (
                   <TableRow key={route.id}>
                     <TableCell className="font-medium">{route.name}</TableCell>
                     <TableCell>{route.schedule}</TableCell>
-                    <TableCell>{driver?.name || 'Desconocido'}</TableCell>
-                    <TableCell>{vehicle?.plate || 'Desconocido'}</TableCell>
+                    <TableCell>{driver?.name || "Desconocido"}</TableCell>
+                    <TableCell>{vehicle?.plate || "Desconocido"}</TableCell>
                     <TableCell>
-                      <Badge variant={route.status === 'Publicada' ? 'default' : 'secondary'}>{route.status}</Badge>
+                      <Badge
+                        variant={
+                          route.status === "Publicada" ? "default" : "secondary"
+                        }
+                      >
+                        {route.status}
+                      </Badge>
                     </TableCell>
                     <TableCell>
-                      <RouteActionsCell route={route} drivers={drivers} vehicles={vehicles} setRoutes={setRoutes} setOpen={() => {}} />
+                      <RouteActionsCell
+                        route={route}
+                        drivers={drivers}
+                        vehicles={vehicles}
+                        setRoutes={setRoutes}
+                        setOpen={() => {}}
+                      />
                     </TableCell>
                   </TableRow>
                 );
@@ -394,14 +666,23 @@ export default function RoutesPage() {
         </Table>
       </CardContent>
       <CardFooter>
-        <div className="text-xs text-muted-foreground">Mostrando <strong>{routes.length}</strong> rutas</div>
+        <div className="text-xs text-muted-foreground">
+          Mostrando <strong>{routes.length}</strong> rutas
+        </div>
         <div className="ml-auto">
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" className="h-8 gap-1"><PlusCircle className="h-3.5 w-3.5" /> Nueva Ruta</Button>
+              <Button size="sm" className="h-8 gap-1">
+                <PlusCircle className="h-3.5 w-3.5" /> Nueva Ruta
+              </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[500px]">
-              <AddRouteForm drivers={drivers} vehicles={vehicles} setOpen={setOpen} setRoutes={setRoutes} />
+              <AddRouteForm
+                drivers={drivers}
+                vehicles={vehicles}
+                setOpen={setOpen}
+                setRoutes={setRoutes}
+              />
             </DialogContent>
           </Dialog>
         </div>

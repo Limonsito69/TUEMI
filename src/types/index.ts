@@ -38,13 +38,12 @@ export type Vehicle = {
 export type Route = {
   id: number;
   name: string;
-  type: 'Abonados' | 'Mixto';
+  Categoria: string; // ANTES ERA: type
   driverId: number;
   vehicleId: number;
   status: 'Publicada' | 'En borrador' | 'Inactiva';
   schedule: string;
   stops: number;
-  // CAMBIO AQUÍ: Simplificamos waypoints para que solo requiera lat y lng
   waypoints?: { lat: number; lng: number }[]; 
 };
 
