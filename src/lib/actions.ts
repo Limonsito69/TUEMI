@@ -1,12 +1,28 @@
 "use server";
-import { z } from 'zod';
+import { z } from "zod";
 import { getDbPool } from "@/lib/db";
-import { User, Vehicle, Driver, Route, Trip, DashboardStats, AuditLog } from "@/types";
+import {
+  User,
+  Vehicle,
+  Driver,
+  Route,
+  Trip,
+  DashboardStats,
+  AuditLog,
+} from "@/types";
 import sql from "mssql";
 import { createSession, deleteSession, getSession } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { detectRouteIncident, DetectRouteIncidentInput } from "@/ai/flows/route-incident-detection";
-import { suggestAlternativeTransport, SuggestAlternativeTransportInput } from "@/ai/flows/transportation-disruption-suggestions";
+import {
+  detectRouteIncident,
+  DetectRouteIncidentInput,
+} from "@/ai/flows/route-incident-detection";
+import {
+  suggestAlternativeTransport,
+  SuggestAlternativeTransportInput,
+} from "@/ai/flows/transportation-disruption-suggestions";
+import { revalidatePath, unstable_noStore } from "next/cache";
+
 // --- TIPOS AUXILIARES ---
 type CreateUserInput = {
   nombres: string;
@@ -20,7 +36,6 @@ type CreateUserInput = {
   assignedRouteId?: string;
 };
 
-
 // --- AUTENTICACIÓN (CORREGIDA) ---
 
 // En src/lib/actions.ts
@@ -30,9 +45,9 @@ type CreateUserInput = {
 async function requireAdmin() {
   const session = await getSession();
   if (!session || session.role !== "admin") {
-    throw new Error("Acceso Denegado: Se requiere ser Administrador.");
+    throw new Error("Acceso Denegado");
   }
-  return session;
+  return session; // 👈 ¡ESTA LÍNEA FALTABA!
 }
 
 async function requireDriver() {
@@ -54,7 +69,10 @@ async function requireStudent() {
 export async function authenticate(ci: string, password: string = "123456") {
   try {
     // Admin Hardcodeado (para emergencias)
-    if (ci === process.env.ADMIN_USER && password === process.env.ADMIN_PASSWORD) {
+    if (
+      ci === process.env.ADMIN_USER &&
+      password === process.env.ADMIN_PASSWORD
+    ) {
       await createSession(0, "Administrador", "admin");
       return { success: true, role: "admin" };
     }
@@ -62,28 +80,34 @@ export async function authenticate(ci: string, password: string = "123456") {
     const pool = await getDbPool();
 
     // 1. Buscar Conductor
-    const driverRes = await pool.request()
+    const driverRes = await pool
+      .request()
       .input("ci", sql.NVarChar, ci)
       .query("SELECT * FROM Drivers WHERE ci = @ci");
 
     if (driverRes.recordset.length > 0) {
       const driver = driverRes.recordset[0];
-      if (driver.password !== password) return { success: false, message: "Contraseña incorrecta" };
-      if (driver.status !== 'Activo') return { success: false, message: "Cuenta inactiva" };
-      
+      if (driver.password !== password)
+        return { success: false, message: "Contraseña incorrecta" };
+      if (driver.status !== "Activo")
+        return { success: false, message: "Cuenta inactiva" };
+
       await createSession(driver.id, driver.name, "driver");
       return { success: true, role: "driver" };
     }
 
     // 2. Buscar Estudiante (Usuario)
-    const userRes = await pool.request()
+    const userRes = await pool
+      .request()
       .input("ci", sql.NVarChar, ci)
       .query("SELECT * FROM Users WHERE ci = @ci");
 
     if (userRes.recordset.length > 0) {
       const user = userRes.recordset[0];
-      if (user.password !== password) return { success: false, message: "Contraseña incorrecta" };
-      if (user.status !== 'Activo') return { success: false, message: "Cuenta inactiva" };
+      if (user.password !== password)
+        return { success: false, message: "Contraseña incorrecta" };
+      if (user.status !== "Activo")
+        return { success: false, message: "Cuenta inactiva" };
 
       await createSession(user.id, user.name, "student");
       return { success: true, role: "student" };
@@ -101,23 +125,34 @@ export async function authenticate(ci: string, password: string = "123456") {
 export async function registerStudent(data: any) {
   try {
     const pool = await getDbPool();
-    // Validación simple de duplicados
-    const check = await pool.request().input("ci", sql.NVarChar, data.ci_numero).query("SELECT id FROM Users WHERE ci LIKE @ci + '%'");
-    if (check.recordset.length > 0) return { success: false, message: "CI ya registrado" };
+    const check = await pool
+      .request()
+      .input("ci", sql.NVarChar, data.ci_numero)
+      .query("SELECT id FROM Users WHERE ci LIKE @ci + '%'");
+    if (check.recordset.length > 0)
+      return { success: false, message: "CI ya registrado" };
 
-    const fullName = `${data.nombres} ${data.paterno} ${data.materno || ''}`.trim();
+    const fullName = `${data.nombres} ${data.paterno} ${
+      data.materno || ""
+    }`.trim();
     const fullCi = `${data.ci_numero} ${data.ci_extension}`;
 
-    // INSERT limpio, estado 'Activo' por defecto
-    const res = await pool.request()
-      .input("n", data.nombres).input("p", data.paterno).input("m", data.materno)
-      .input("ce", data.ci_extension).input("ph", data.phone).input("em", data.email)
-      .input("pass", data.password).input("ci", fullCi).input("name", fullName)
-      .query(`
+    const res = await pool
+      .request()
+      .input("n", data.nombres)
+      .input("p", data.paterno)
+      .input("m", data.materno)
+      .input("ce", data.ci_extension)
+      .input("ph", data.phone)
+      .input("em", data.email)
+      .input("pass", data.password)
+      .input("ci", fullCi)
+      .input("name", fullName).query(`
         INSERT INTO Users (nombres, paterno, materno, ci_extension, phone, email, password, ci, name, status, avatar) 
         OUTPUT INSERTED.* VALUES (@n, @p, @m, @ce, @ph, @em, @pass, @ci, @name, 'Activo', 'user-placeholder')
       `);
 
+    revalidatePath("/admin/users"); // Actualizar lista de usuarios
     return { success: true, user: res.recordset[0] };
   } catch (e) {
     console.error(e);
@@ -130,6 +165,7 @@ export async function registerStudent(data: any) {
 export async function runIncidentDetection(input: DetectRouteIncidentInput) {
     return detectRouteIncident(input);
 }
+
 export async function getTransportSuggestions(input: SuggestAlternativeTransportInput) {
     return suggestAlternativeTransport(input);
 }
@@ -172,20 +208,25 @@ export async function getUsers(): Promise<User[]> {
 }
 
 export async function getUserProfile(userId: number): Promise<User | null> {
+  unstable_noStore(); // No cachear perfil
   try {
     const pool = await getDbPool();
-    const res = await pool.request().input("id", userId).query("SELECT * FROM Users WHERE id = @id");
+    const res = await pool
+      .request()
+      .input("id", userId)
+      .query("SELECT * FROM Users WHERE id = @id");
     return res.recordset[0] as User;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
-
 export async function createUser(data: CreateUserInput): Promise<User | null> {
   await requireAdmin();
   try {
     const pool = await getDbPool();
     // Ajuste: usar 'ci' en lugar de 'ci_numero' para unicidad en nueva estructura
     const fullCi = `${data.ci_numero} ${data.ci_extension}`.trim();
-    
+
     const check = await pool
       .request()
       .input("ci", sql.NVarChar, fullCi)
@@ -206,7 +247,12 @@ export async function createUser(data: CreateUserInput): Promise<User | null> {
       );
 
     const newUser = result.recordset[0] as User;
-    await logAudit("Admin", newUser.id, "CREAR", `Usuario creado: ${newUser.nombres}`);
+    await logAudit(
+      "Admin",
+      newUser.id,
+      "CREAR",
+      `Usuario creado: ${newUser.nombres}`
+    );
     return newUser;
   } catch (error: any) {
     throw new Error(error.message || "Error en base de datos");
@@ -216,7 +262,10 @@ export async function createUser(data: CreateUserInput): Promise<User | null> {
 export async function updateUser(user: User): Promise<User | null> {
   try {
     const pool = await getDbPool();
-    const prev = await pool.request().input("pid", sql.Int, user.id).query("SELECT status FROM Users WHERE id=@pid");
+    const prev = await pool
+      .request()
+      .input("pid", sql.Int, user.id)
+      .query("SELECT status FROM Users WHERE id=@pid");
     const prevStatus = prev.recordset[0]?.status;
 
     const result = await pool
@@ -232,7 +281,12 @@ export async function updateUser(user: User): Promise<User | null> {
     if (result.recordset.length > 0) {
       const updatedUser = result.recordset[0] as User;
       if (prevStatus !== updatedUser.status)
-        await logAudit("Admin", user.id, "CAMBIO_ESTADO", `De ${prevStatus} a ${updatedUser.status}`);
+        await logAudit(
+          "Admin",
+          user.id,
+          "CAMBIO_ESTADO",
+          `De ${prevStatus} a ${updatedUser.status}`
+        );
       else await logAudit("Admin", user.id, "EDITAR", `Datos actualizados`);
       return updatedUser;
     }
@@ -243,11 +297,19 @@ export async function updateUser(user: User): Promise<User | null> {
 }
 
 export async function deleteUser(userId: number): Promise<boolean> {
-  const session = await requireAdmin(); 
+  const session = await requireAdmin();
   try {
     const pool = await getDbPool();
-    await logAudit(session.name, userId, "ELIMINAR", "Usuario eliminado permanentemente");
-    await pool.request().input("id", sql.Int, userId).query("DELETE FROM Users WHERE id = @id");
+    await logAudit(
+      session.name,
+      userId,
+      "ELIMINAR",
+      "Usuario eliminado permanentemente"
+    );
+    await pool
+      .request()
+      .input("id", sql.Int, userId)
+      .query("DELETE FROM Users WHERE id = @id");
     return true;
   } catch (error) {
     return false;
@@ -257,18 +319,35 @@ export async function deleteUser(userId: number): Promise<boolean> {
 export async function getUserAuditLogs(userId: number): Promise<AuditLog[]> {
   try {
     const pool = await getDbPool();
-    const result = await pool.request().input("uid", sql.Int, userId).query("SELECT * FROM AuditLogs WHERE targetUserId = @uid ORDER BY timestamp DESC");
+    const result = await pool
+      .request()
+      .input("uid", sql.Int, userId)
+      .query(
+        "SELECT * FROM AuditLogs WHERE targetUserId = @uid ORDER BY timestamp DESC"
+      );
     return result.recordset as AuditLog[];
   } catch {
     return [];
   }
 }
 
-export async function resetUserPassword(userId: number, pass: string): Promise<boolean> {
+export async function resetUserPassword(
+  userId: number,
+  pass: string
+): Promise<boolean> {
   try {
     const pool = await getDbPool();
-    await pool.request().input("id", sql.Int, userId).input("p", sql.NVarChar, pass).query("UPDATE Users SET password = @p WHERE id = @id");
-    await logAudit("Admin", userId, "PASSWORD_RESET", "Contraseña restablecida manualmente");
+    await pool
+      .request()
+      .input("id", sql.Int, userId)
+      .input("p", sql.NVarChar, pass)
+      .query("UPDATE Users SET password = @p WHERE id = @id");
+    await logAudit(
+      "Admin",
+      userId,
+      "PASSWORD_RESET",
+      "Contraseña restablecida manualmente"
+    );
     return true;
   } catch {
     return false;
@@ -353,7 +432,10 @@ export async function updateVehicle(vehicle: any): Promise<Vehicle | null> {
 export async function deleteVehicle(id: number): Promise<boolean> {
   try {
     const pool = await getDbPool();
-    await pool.request().input("id", sql.Int, id).query("DELETE FROM Vehicles WHERE id = @id");
+    await pool
+      .request()
+      .input("id", sql.Int, id)
+      .query("DELETE FROM Vehicles WHERE id = @id");
     return true;
   } catch (error) {
     return false;
@@ -365,7 +447,9 @@ export async function deleteVehicle(id: number): Promise<boolean> {
 export async function getDrivers(): Promise<Driver[]> {
   try {
     const pool = await getDbPool();
-    const result = await pool.request().query("SELECT * FROM Drivers ORDER BY id DESC");
+    const result = await pool
+      .request()
+      .query("SELECT * FROM Drivers ORDER BY id DESC");
     return result.recordset as Driver[];
   } catch (error) {
     return [];
@@ -415,31 +499,54 @@ export async function updateDriver(driver: any): Promise<Driver | null> {
 export async function deleteDriver(id: number): Promise<boolean> {
   try {
     const pool = await getDbPool();
-    await pool.request().input("id", sql.Int, id).query("DELETE FROM Drivers WHERE id = @id");
+    await pool
+      .request()
+      .input("id", sql.Int, id)
+      .query("DELETE FROM Drivers WHERE id = @id");
     return true;
   } catch (error) {
     return false;
   }
 }
 
-export async function resetDriverPassword(id: number, p: string): Promise<boolean> {
+export async function resetDriverPassword(
+  id: number,
+  p: string
+): Promise<boolean> {
   try {
     const pool = await getDbPool();
-    await pool.request().input("id", sql.Int, id).input("p", sql.NVarChar, p).query("UPDATE Drivers SET password = @p WHERE id = @id");
+    await pool
+      .request()
+      .input("id", sql.Int, id)
+      .input("p", sql.NVarChar, p)
+      .query("UPDATE Drivers SET password = @p WHERE id = @id");
     return true;
   } catch {
     return false;
   }
 }
 
-export async function changeDriverPassword(driverId: number, currentPass: string, newPass: string): Promise<{ success: boolean; message: string }> {
+export async function changeDriverPassword(
+  driverId: number,
+  currentPass: string,
+  newPass: string
+): Promise<{ success: boolean; message: string }> {
   try {
     const pool = await getDbPool();
-    const check = await pool.request().input("id", sql.Int, driverId).query("SELECT password FROM Drivers WHERE id = @id");
-    if (check.recordset.length === 0) return { success: false, message: "Conductor no encontrado." };
-    if (check.recordset[0].password !== currentPass) return { success: false, message: "Contraseña incorrecta." };
+    const check = await pool
+      .request()
+      .input("id", sql.Int, driverId)
+      .query("SELECT password FROM Drivers WHERE id = @id");
+    if (check.recordset.length === 0)
+      return { success: false, message: "Conductor no encontrado." };
+    if (check.recordset[0].password !== currentPass)
+      return { success: false, message: "Contraseña incorrecta." };
 
-    await pool.request().input("id", sql.Int, driverId).input("p", sql.NVarChar, newPass).query("UPDATE Drivers SET password = @p WHERE id = @id");
+    await pool
+      .request()
+      .input("id", sql.Int, driverId)
+      .input("p", sql.NVarChar, newPass)
+      .query("UPDATE Drivers SET password = @p WHERE id = @id");
     return { success: true, message: "Contraseña actualizada." };
   } catch (error) {
     return { success: false, message: "Error servidor." };
@@ -458,44 +565,45 @@ const RouteSchema = z.object({
 });
 
 export async function getRoutes(): Promise<Route[]> {
+  unstable_noStore();
   try {
     const pool = await getDbPool();
-    const res = await pool.request().query("SELECT * FROM Routes WHERE status = 'Publicada'");
+    // Traemos todas, no solo las publicadas, para que el admin las vea
+    const res = await pool
+      .request()
+      .query("SELECT * FROM Routes ORDER BY id DESC");
     return res.recordset.map((r: any) => ({
       ...r,
-      waypoints: r.waypoints ? JSON.parse(r.waypoints) : [] // Aquí vienen las paradas
+      waypoints: r.waypoints ? JSON.parse(r.waypoints) : [],
     }));
-  } catch { return []; }
+  } catch {
+    return [];
+  }
 }
 
-export async function createRoute(rawData: unknown): Promise<Route | null> {
+export async function createRoute(data: any) {
   await requireAdmin();
   try {
-    const data = RouteSchema.parse(rawData);
     const pool = await getDbPool();
-    const waypointsJson = data.waypoints ? JSON.stringify(data.waypoints) : '[]';
+    const waypointsJson = JSON.stringify(data.waypoints || []);
 
-    // CORREGIDO: Eliminados driverId y vehicleId
-    const result = await pool.request()
+    await pool
+      .request()
       .input("name", sql.NVarChar, data.name)
-      .input("cat", sql.NVarChar, data.Categoria) 
+      .input("cat", sql.NVarChar, data.Categoria || "Regular")
       .input("status", sql.NVarChar, data.status)
       .input("schedule", sql.NVarChar, data.schedule)
       .input("stops", sql.Int, data.stops)
-      .input("waypoints", sql.NVarChar, waypointsJson)
-      .query(`
+      .input("waypoints", sql.NVarChar, waypointsJson).query(`
         INSERT INTO Routes (name, Categoria, status, schedule, stops, waypoints) 
-        OUTPUT INSERTED.* VALUES (@name, @cat, @status, @schedule, @stops, @waypoints)
+        VALUES (@name, @cat, @status, @schedule, @stops, @waypoints)
       `);
 
-    if (result.recordset.length > 0) {
-        const newRoute = result.recordset[0];
-        return { ...newRoute, waypoints: JSON.parse(newRoute.waypoints || '[]'), driverId: null, vehicleId: null };
-    }
-    return null;
-  } catch (error) {
-    console.error("Error creando ruta:", error);
-    return null;
+    revalidatePath("/admin/routes"); // Actualizar lista de rutas
+    return true;
+  } catch (e) {
+    console.error(e);
+    throw e;
   }
 }
 
@@ -505,26 +613,33 @@ export async function updateRoute(rawData: unknown): Promise<Route | null> {
     const UpdateRouteSchema = RouteSchema.extend({ id: z.number() });
     const data = UpdateRouteSchema.parse(rawData);
     const pool = await getDbPool();
-    const waypointsJson = data.waypoints ? JSON.stringify(data.waypoints) : '[]';
+    const waypointsJson = data.waypoints
+      ? JSON.stringify(data.waypoints)
+      : "[]";
 
     // CORREGIDO: Eliminados driverId y vehicleId
-    const result = await pool.request()
+    const result = await pool
+      .request()
       .input("id", sql.Int, data.id)
       .input("name", sql.NVarChar, data.name)
-      .input("cat", sql.NVarChar, data.Categoria) 
+      .input("cat", sql.NVarChar, data.Categoria)
       .input("status", sql.NVarChar, data.status)
       .input("schedule", sql.NVarChar, data.schedule)
       .input("stops", sql.Int, data.stops)
-      .input("waypoints", sql.NVarChar, waypointsJson)
-      .query(`
+      .input("waypoints", sql.NVarChar, waypointsJson).query(`
         UPDATE Routes 
         SET name=@name, Categoria=@cat, status=@status, schedule=@schedule, stops=@stops, waypoints=@waypoints
         OUTPUT INSERTED.* WHERE id=@id
       `);
 
     if (result.recordset.length > 0) {
-        const updated = result.recordset[0];
-        return { ...updated, waypoints: JSON.parse(updated.waypoints || '[]'), driverId: null, vehicleId: null };
+      const updated = result.recordset[0];
+      return {
+        ...updated,
+        waypoints: JSON.parse(updated.waypoints || "[]"),
+        driverId: null,
+        vehicleId: null,
+      };
     }
     return null;
   } catch (error) {
@@ -537,7 +652,10 @@ export async function deleteRoute(id: number): Promise<boolean> {
   try {
     await requireAdmin();
     const pool = await getDbPool();
-    await pool.request().input("id", sql.Int, id).query("DELETE FROM Routes WHERE id = @id");
+    await pool
+      .request()
+      .input("id", sql.Int, id)
+      .query("DELETE FROM Routes WHERE id = @id");
     return true;
   } catch {
     return false;
@@ -547,13 +665,17 @@ export async function deleteRoute(id: number): Promise<boolean> {
 // --- VIAJES Y MONITOREO ---
 
 export async function getActiveTrips(): Promise<Trip[]> {
+  unstable_noStore(); // Datos en tiempo real no deben cachearse
   try {
     const pool = await getDbPool();
-    const res = await pool.request().query("SELECT * FROM Trips WHERE status = 'En curso'");
+    const res = await pool
+      .request()
+      .query("SELECT * FROM Trips WHERE status = 'En curso'");
     return res.recordset as Trip[];
-  } catch { return []; }
+  } catch {
+    return [];
+  }
 }
-
 export async function startTrip(data: any): Promise<Trip | null> {
   try {
     const pool = await getDbPool();
@@ -578,27 +700,51 @@ export async function startTrip(data: any): Promise<Trip | null> {
 export async function endTrip(id: number): Promise<boolean> {
   try {
     const pool = await getDbPool();
-    await pool.request().input("id", sql.Int, id).input("end", sql.DateTime2, new Date()).query("UPDATE Trips SET status = 'Finalizado', endTime = @end WHERE id = @id");
+    await pool
+      .request()
+      .input("id", sql.Int, id)
+      .input("end", sql.DateTime2, new Date())
+      .query(
+        "UPDATE Trips SET status = 'Finalizado', endTime = @end WHERE id = @id"
+      );
     return true;
   } catch {
     return false;
   }
 }
 
-export async function updateTripLocation(id: number, lat: number, lng: number): Promise<boolean> {
+export async function updateTripLocation(
+  id: number,
+  lat: number,
+  lng: number
+): Promise<boolean> {
   try {
     const pool = await getDbPool();
-    await pool.request().input("id", sql.Int, id).input("lat", sql.Decimal(9, 6), lat).input("lng", sql.Decimal(9, 6), lng).query("UPDATE Trips SET locationLat = @lat, locationLng = @lng WHERE id = @id");
+    await pool
+      .request()
+      .input("id", sql.Int, id)
+      .input("lat", sql.Decimal(9, 6), lat)
+      .input("lng", sql.Decimal(9, 6), lng)
+      .query(
+        "UPDATE Trips SET locationLat = @lat, locationLng = @lng WHERE id = @id"
+      );
     return true;
   } catch {
     return false;
   }
 }
 
-export async function getDriverActiveTrip(driverId: number): Promise<Trip | null> {
+export async function getDriverActiveTrip(
+  driverId: number
+): Promise<Trip | null> {
   try {
     const pool = await getDbPool();
-    const result = await pool.request().input("did", sql.Int, driverId).query("SELECT * FROM Trips WHERE driverId = @did AND status = 'En curso'");
+    const result = await pool
+      .request()
+      .input("did", sql.Int, driverId)
+      .query(
+        "SELECT * FROM Trips WHERE driverId = @did AND status = 'En curso'"
+      );
     if (result.recordset.length > 0) return result.recordset[0] as Trip;
     return null;
   } catch {
@@ -609,39 +755,37 @@ export async function getDriverActiveTrip(driverId: number): Promise<Trip | null
 export async function simulateVehicleMovement(): Promise<void> {
   try {
     const pool = await getDbPool();
-    await pool.request().query(`UPDATE Trips SET locationLat = locationLat + 0.0001, locationLng = locationLng + (0.0001 * CASE WHEN id % 2 = 0 THEN 1 ELSE -1 END) WHERE status = 'En curso'`);
+    await pool
+      .request()
+      .query(
+        `UPDATE Trips SET locationLat = locationLat + 0.0001, locationLng = locationLng + (0.0001 * CASE WHEN id % 2 = 0 THEN 1 ELSE -1 END) WHERE status = 'En curso'`
+      );
   } catch {}
 }
 
 // --- REPORTES ---
 
 export async function getSystemStats(): Promise<DashboardStats> {
+  unstable_noStore();
   try {
     const pool = await getDbPool();
-    
-    const users = await pool.request().query(`
-      SELECT 
-        COUNT(*) as total, 
-        SUM(CASE WHEN status = 'Activo' THEN 1 ELSE 0 END) as active 
-      FROM Users
-    `);
-    
-    const vehicles = await pool.request().query(`
-      SELECT 
-        SUM(CASE WHEN status = 'Activo' THEN 1 ELSE 0 END) as active,
-        SUM(CASE WHEN status = 'En mantenimiento' THEN 1 ELSE 0 END) as maint
-      FROM Vehicles
-    `);
 
+    const users = await pool
+      .request()
+      .query(
+        `SELECT COUNT(*) as total, SUM(CASE WHEN status = 'Activo' THEN 1 ELSE 0 END) as active FROM Users`
+      );
+    const vehicles = await pool
+      .request()
+      .query(
+        `SELECT SUM(CASE WHEN status = 'Activo' THEN 1 ELSE 0 END) as active, SUM(CASE WHEN status = 'En mantenimiento' THEN 1 ELSE 0 END) as maint FROM Vehicles`
+      );
     const trips = await pool.request().query("SELECT COUNT(*) as t FROM Trips");
-    
-    const topDrivers = await pool.request().query(`
-      SELECT TOP 5 d.name, COUNT(t.id) as trips 
-      FROM Trips t 
-      JOIN Drivers d ON t.driverId = d.id 
-      GROUP BY d.name 
-      ORDER BY trips DESC
-    `);
+    const topDrivers = await pool
+      .request()
+      .query(
+        `SELECT TOP 5 d.name, COUNT(t.id) as trips FROM Trips t JOIN Drivers d ON t.driverId = d.id GROUP BY d.name ORDER BY trips DESC`
+      );
 
     return {
       totalUsers: users.recordset[0]?.total || 0,
@@ -649,36 +793,70 @@ export async function getSystemStats(): Promise<DashboardStats> {
       activeVehicles: vehicles.recordset[0]?.active || 0,
       maintenanceVehicles: vehicles.recordset[0]?.maint || 0,
       totalTrips: trips.recordset[0]?.t || 0,
-      tripsByDriver: topDrivers.recordset || []
+      tripsByDriver: topDrivers.recordset || [],
     };
   } catch {
     return {
-      totalUsers: 0, activeUsers: 0, activeVehicles: 0, maintenanceVehicles: 0, totalTrips: 0, tripsByDriver: []
+      totalUsers: 0,
+      activeUsers: 0,
+      activeVehicles: 0,
+      maintenanceVehicles: 0,
+      totalTrips: 0,
+      tripsByDriver: [],
     };
   }
 }
 
 // --- SOPORTE Y AJUSTES ESTUDIANTE ---
 
-export async function changeStudentPassword(userId: number, currentPass: string, newPass: string): Promise<{ success: boolean; message: string }> {
+export async function changeStudentPassword(
+  userId: number,
+  currentPass: string,
+  newPass: string
+): Promise<{ success: boolean; message: string }> {
   try {
     const pool = await getDbPool();
-    const check = await pool.request().input("id", sql.Int, userId).query("SELECT password FROM Users WHERE id = @id");
-    if (check.recordset.length === 0) return { success: false, message: "Usuario no encontrado." };
-    if (check.recordset[0].password !== currentPass) return { success: false, message: "Contraseña incorrecta." };
+    const check = await pool
+      .request()
+      .input("id", sql.Int, userId)
+      .query("SELECT password FROM Users WHERE id = @id");
+    if (check.recordset.length === 0)
+      return { success: false, message: "Usuario no encontrado." };
+    if (check.recordset[0].password !== currentPass)
+      return { success: false, message: "Contraseña incorrecta." };
 
-    await pool.request().input("id", sql.Int, userId).input("p", sql.NVarChar, newPass).query("UPDATE Users SET password = @p WHERE id = @id");
-    await logAudit("Estudiante", userId, "CHANGE_PASSWORD", "Cambio de contraseña propio");
+    await pool
+      .request()
+      .input("id", sql.Int, userId)
+      .input("p", sql.NVarChar, newPass)
+      .query("UPDATE Users SET password = @p WHERE id = @id");
+    await logAudit(
+      "Estudiante",
+      userId,
+      "CHANGE_PASSWORD",
+      "Cambio de contraseña propio"
+    );
     return { success: true, message: "Contraseña actualizada." };
   } catch (error) {
     return { success: false, message: "Error servidor." };
   }
 }
 
-export async function reportLostItem(userId: number, description: string, route: string): Promise<boolean> {
+export async function reportLostItem(
+  userId: number,
+  description: string,
+  route: string
+): Promise<boolean> {
   try {
     const pool = await getDbPool();
-    await pool.request().input("uid", sql.Int, userId).input("d", sql.NVarChar, description).input("r", sql.NVarChar, route).query("INSERT INTO LostAndFound (userId, description, route) VALUES (@uid, @d, @r)");
+    await pool
+      .request()
+      .input("uid", sql.Int, userId)
+      .input("d", sql.NVarChar, description)
+      .input("r", sql.NVarChar, route)
+      .query(
+        "INSERT INTO LostAndFound (userId, description, route) VALUES (@uid, @d, @r)"
+      );
     return true;
   } catch {
     return false;
@@ -699,9 +877,14 @@ export async function logout() {
 // --- GESTIÓN DE PARADAS (NUEVO) ---
 
 export async function getStops() {
+  unstable_noStore(); // 👈 IMPORTANTE: Esto obliga a leer SIEMPRE de la base de datos, sin caché
   try {
     const pool = await getDbPool();
-    const result = await pool.request().query("SELECT Id as id, Nombre as name, Latitud as lat, Longitud as lng FROM Operaciones.Paradas");
+    const result = await pool
+      .request()
+      .query(
+        "SELECT Id as id, Nombre as name, Latitud as lat, Longitud as lng FROM Operaciones.Paradas ORDER BY Id DESC"
+      );
     return result.recordset;
   } catch (error) {
     console.error("Error obteniendo paradas:", error);
@@ -709,16 +892,26 @@ export async function getStops() {
   }
 }
 
-export async function createStop(data: { name: string; lat: number; lng: number }) {
-  await requireAdmin(); // Solo admin puede crear
+export async function createStop(data: {
+  name: string;
+  lat: number;
+  lng: number;
+}) {
+  await requireAdmin();
   try {
     const pool = await getDbPool();
-    const result = await pool.request()
+    const result = await pool
+      .request()
       .input("name", sql.NVarChar, data.name)
       .input("lat", sql.Decimal(9, 6), data.lat)
       .input("lng", sql.Decimal(9, 6), data.lng)
-      .query("INSERT INTO Operaciones.Paradas (Nombre, Latitud, Longitud, EsPrincipal) OUTPUT INSERTED.Id as id, INSERTED.Nombre as name, INSERTED.Latitud as lat, INSERTED.Longitud as lng VALUES (@name, @lat, @lng, 1)");
-    
+      .query(
+        "INSERT INTO Operaciones.Paradas (Nombre, Latitud, Longitud, EsPrincipal) OUTPUT INSERTED.Id as id, INSERTED.Nombre as name, INSERTED.Latitud as lat, INSERTED.Longitud as lng VALUES (@name, @lat, @lng, 1)"
+      );
+
+    revalidatePath("/admin/stops"); // 👈 IMPORTANTE: Avisa a la página de paradas que se actualice
+    revalidatePath("/admin/routes"); // También avisa a la de rutas (porque usa las paradas)
+
     return result.recordset[0];
   } catch (error) {
     console.error("Error creando parada:", error);
@@ -730,7 +923,14 @@ export async function deleteStop(id: number) {
   await requireAdmin();
   try {
     const pool = await getDbPool();
-    await pool.request().input("id", sql.Int, id).query("DELETE FROM Operaciones.Paradas WHERE Id = @id");
+    await pool
+      .request()
+      .input("id", sql.Int, id)
+      .query("DELETE FROM Operaciones.Paradas WHERE Id = @id");
+
+    revalidatePath("/admin/stops"); // 👈 Actualizar caché al borrar
+    revalidatePath("/admin/routes");
+
     return true;
   } catch (error) {
     console.error("Error eliminando parada:", error);
