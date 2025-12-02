@@ -906,21 +906,26 @@ export async function createStop(data: { name: string; lat: number; lng: number 
   try {
     const pool = await getDbPool();
     
-    // Usamos sql.Float para que coincida con la nueva tabla
+    // Usamos sql.Float para coincidir con la nueva tabla
     const result = await pool.request()
       .input("name", sql.NVarChar, data.name)
       .input("lat", sql.Float, data.lat) // <--- IMPORTANTE: sql.Float
       .input("lng", sql.Float, data.lng) // <--- IMPORTANTE: sql.Float
-      // IMPORTANTE: Agregamos Latitud y Longitud al OUTPUT para que el mapa reciba los datos completos
       .query("INSERT INTO Operaciones.Paradas (Nombre, Latitud, Longitud, EsPrincipal) OUTPUT INSERTED.Id as id, INSERTED.Nombre as name, INSERTED.Latitud as lat, INSERTED.Longitud as lng VALUES (@name, @lat, @lng, 1)");
     
-    // Forzar actualización de caché
+    // Actualizar caché
     revalidatePath('/admin/stops');
     revalidatePath('/admin/routes');
     
-    console.log("✅ Parada creada:", result.recordset[0]);
-    return result.recordset[0];
+    if (result.recordset.length > 0) {
+        console.log("✅ Parada creada:", result.recordset[0]);
+        return result.recordset[0];
+    } else {
+        console.error("❌ La base de datos no devolvió el registro insertado.");
+        return null;
+    }
   } catch (error) {
+    // Si falla, verás el error exacto en tu terminal de VS Code
     console.error("❌ ERROR CRÍTICO AL CREAR PARADA:", error);
     return null;
   }
