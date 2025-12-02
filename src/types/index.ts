@@ -3,17 +3,21 @@ export type User = {
   name: string;
   ci: string;
   phone: string;
-  status: 'Abonado' | 'No Abonado' | 'Activo' | 'Inactivo'; // Actualizado para soportar ambos
+  status: 'Activo' | 'Inactivo';
   avatar: string;
   email?: string;
-  assignedRouteId?: number | null;
-  codigo_SAGA?: string; 
+  
+  // --- AGREGAR ESTA LÍNEA QUE FALTA: ---
+  assignedRouteId?: number | null; 
+  // ------------------------------------
+  
+  codigo_SAGA?: string;
   nombres?: string;
   paterno?: string;
   materno?: string;
   ci_numero?: string;
   ci_extension?: string;
-}
+};
 
 export type Driver = {
   id: number;
@@ -38,13 +42,11 @@ export type Vehicle = {
 export type Route = {
   id: number;
   name: string;
-  Categoria: string; // ANTES ERA: type
-  driverId: number;
-  vehicleId: number;
+  // 'Categoria' eliminada o simplificada si solo hay un tipo de servicio
   status: 'Publicada' | 'En borrador' | 'Inactiva';
   schedule: string;
-  stops: number;
-  waypoints?: { lat: number; lng: number }[]; 
+  stops: number; // Cantidad de paradas
+  waypoints?: any[]; // Guardará la lista de paradas (JSON)
 };
 
 export type Alert = {
@@ -63,9 +65,8 @@ export type Trip = {
   startTime: Date;
   endTime: Date | null;
   status: 'En curso' | 'Finalizado' | 'Pendiente';
-  // CAMBIO IMPORTANTE: Actualizamos a los nombres de la BD
-  PasajerosRegistrados: number; // Antes passengersAbonado
-  PasajerosInvitados: number;   // Antes passengersNoAbonado
+  PasajerosRegistrados: number; // Estudiantes con App (QR)
+  PasajerosInvitados: number;   // Otros (Manual)
   locationLat: number | null;
   locationLng: number | null;
 };
@@ -96,17 +97,17 @@ export type CreateUserInput = {
 
 export type AuditLog = {
   id: number;
-  entityType: string;
-  entityId: number;
+  adminName: string;
   action: string;
   details: string;
   timestamp: Date;
-  adminId?: number; 
-  adminName?: string; 
 };
 
 export type DashboardStats = {
   totalUsers: number;
-  abonados: number;
+  activeUsers: number; // Reemplaza a abonados
+  activeVehicles: number;
+  maintenanceVehicles: number;
   totalTrips: number;
+  tripsByDriver: { name: string; trips: number }[];
 };

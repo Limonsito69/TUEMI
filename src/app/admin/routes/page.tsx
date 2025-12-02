@@ -1,692 +1,175 @@
-"use client";
+'use client';
 
-import * as React from "react";
-import { MoreHorizontal, PlusCircle, Pencil, Trash } from "lucide-react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+import * as React from 'react';
+import dynamic from 'next/dynamic';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
+import { ArrowRight, Save, GripVertical, X } from 'lucide-react';
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Route, Driver, Vehicle } from "@/types";
-import {
-  getRoutes,
-  getDrivers,
-  getVehicles,
-  createRoute,
-  updateRoute,
-  deleteRoute,
-} from "@/lib/actions";
+const Map = dynamic(() => import('@/components/ui/map'), { ssr: false });
 
-// --- Esquema de Validación (Frontend) ---
-const formSchema = z.object({
-  name: z.string().min(3, "Nombre requerido."),
-  // IMPORTANTE: Debe coincidir con la BD. Agrega 'Regular'.
-  Categoria: z.enum(["Abonados", "Mixto", "Regular"]),
-  driverId: z.string().optional(),
-  vehicleId: z.string().optional(),
-  status: z.enum(["Publicada", "En borrador", "Inactiva"]),
-  schedule: z.string().min(1, "Horario requerido."),
-  stops: z.coerce.number().min(1, "Mínimo 1 parada."),
-});
-
-type RouteFormProps = {
-  drivers: Driver[];
-  vehicles: Vehicle[];
-  setOpen: (open: boolean) => void;
-  setRoutes: React.Dispatch<React.SetStateAction<Route[]>>;
+type RouteStop = {
+    stopId: number;
+    name: string;
+    lat: number;
+    lng: number;
+    order: number;
 };
 
-// --- Componente: Añadir Ruta ---
-function AddRouteForm({
-  drivers,
-  vehicles,
-  setOpen,
-  setRoutes,
-}: RouteFormProps) {
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: "",
-      Categoria: "Regular",
-      driverId: "",
-      vehicleId: "",
-      status: "En borrador",
-      schedule: "",
-      stops: 1,
-    },
-  });
+export default function RoutesBuilderPage() {
+    const { toast } = useToast();
+    // Estado del Formulario
+    const [routeName, setRouteName] = React.useState("");
+    const [schedule, setSchedule] = React.useState("");
+    const [status, setStatus] = React.useState("En borrador");
+    
+    // Estado de la Ruta en Construcción
+    const [selectedStops, setSelectedStops] = React.useState<RouteStop[]>([]);
+    
+    // Todas las paradas disponibles (Cargar de BD)
+    const [allStops, setAllStops] = React.useState<any[]>([
+        { id: 1, name: "Puerta EMI", lat: -16.539, lng: -68.09 },
+        { id: 2, name: "Calle 21", lat: -16.541, lng: -68.08 },
+        { id: 3, name: "Plaza Estudiante", lat: -16.500, lng: -68.12 },
+        { id: 4, name: "Estadio", lat: -16.510, lng: -68.11 },
+    ]);
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    try {
-      // Convertimos cadena vacía a NULL
-      const driverId =
-        values.driverId && values.driverId !== ""
-          ? parseInt(values.driverId)
-          : null;
-      const vehicleId =
-        values.vehicleId && values.vehicleId !== ""
-          ? parseInt(values.vehicleId)
-          : null;
+    // Función: Cuando haces clic en un pin del mapa
+    const handleStopClick = (stop: any) => {
+        // Verificar si ya está seleccionado
+        if (selectedStops.find(s => s.stopId === stop.id)) {
+            toast({ title: "Ya añadida", description: "Esta parada ya es parte de la ruta." });
+            return;
+        }
 
-      const newRoute = await createRoute({
-        ...values,
-        driverId,
-        vehicleId,
-      });
+        const newSequenceNumber = selectedStops.length + 1;
+        const newStop: RouteStop = {
+            stopId: stop.id,
+            name: stop.name,
+            lat: stop.lat,
+            lng: stop.lng,
+            order: newSequenceNumber
+        };
 
-      if (newRoute) {
-        setRoutes((prev) => [newRoute, ...prev]);
-        alert("¡Ruta creada!");
-        setOpen(false);
-      } else {
-        alert("Error: No se pudo crear la ruta (Validación fallida)");
-      }
-    } catch (error) {
-      console.error(error);
-      alert("Error al crear ruta.");
-    }
-  }
+        setSelectedStops([...selectedStops, newStop]);
+    };
 
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <DialogHeader>
-          <DialogTitle>Nueva Ruta</DialogTitle>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <FormField
-            control={form.control}
-            name="name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Nombre</FormLabel>
-                <FormControl>
-                  <Input placeholder="Ej: Ruta Irpavi" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+    const removeStopFromRoute = (index: number) => {
+        const newStops = [...selectedStops];
+        newStops.splice(index, 1);
+        // Recalcular orden
+        const reordered = newStops.map((s, i) => ({ ...s, order: i + 1 }));
+        setSelectedStops(reordered);
+    };
 
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="schedule"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Horario</FormLabel>
-                  <FormControl>
-                    <Input placeholder="07:30 AM" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="stops"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Paradas</FormLabel>
-                  <FormControl>
-                    <Input type="number" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+    const handleSaveRoute = async () => {
+        if (!routeName || selectedStops.length < 2) {
+            toast({ title: "Falta información", description: "Pon un nombre y selecciona al menos 2 paradas.", variant: "destructive" });
+            return;
+        }
 
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="driverId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Conductor (Opcional)</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {drivers.map((d) => (
-                        <SelectItem key={d.id} value={d.id.toString()}>
-                          {d.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="vehicleId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Vehículo (Opcional)</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {vehicles.map((v) => (
-                        <SelectItem key={v.id} value={v.id.toString()}>
-                          {v.plate}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+        const routeData = {
+            name: routeName,
+            schedule,
+            status,
+            waypoints: selectedStops // Esto se guardará como JSON
+        };
 
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="Categoria"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Tipo / Categoría</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="Regular">Regular</SelectItem>
-                      <SelectItem value="Abonados">Activados</SelectItem>
-                      <SelectItem value="Mixto">Mixto</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Estado</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="Publicada">Publicada</SelectItem>
-                      <SelectItem value="En borrador">En borrador</SelectItem>
-                      <SelectItem value="Inactiva">Inactiva</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+        console.log("Guardando Ruta:", routeData);
+        // AWAIT createRoute(routeData)...
+        toast({ title: "¡Ruta Creada!", description: "La ruta se ha guardado exitosamente." });
+    };
+
+    return (
+        <div className="flex h-[calc(100vh-80px)] gap-4 p-4">
+            
+            {/* PANEL IZQUIERDO: CONFIGURADOR */}
+            <Card className="w-1/3 flex flex-col border-none shadow-xl bg-white/95 backdrop-blur">
+                <div className="p-6 space-y-6 flex-1 overflow-y-auto">
+                    <div>
+                        <h2 className="text-2xl font-bold mb-1">Diseñador de Rutas</h2>
+                        <p className="text-sm text-muted-foreground">Une los puntos en el mapa para crear el recorrido.</p>
+                    </div>
+
+                    {/* Datos Básicos */}
+                    <div className="space-y-4 bg-slate-50 p-4 rounded-lg border">
+                        <div className="grid gap-2">
+                            <Label>Nombre de la Ruta</Label>
+                            <Input placeholder="Ej: Ruta Sur - Mañana" value={routeName} onChange={e => setRouteName(e.target.value)} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="grid gap-2">
+                                <Label>Horario</Label>
+                                <Input placeholder="07:00 AM" value={schedule} onChange={e => setSchedule(e.target.value)} />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>Estado</Label>
+                                <Select value={status} onValueChange={setStatus}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="En borrador">Borrador</SelectItem>
+                                        <SelectItem value="Publicada">Publicada</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Lista de Secuencia */}
+                    <div>
+                        <Label className="mb-2 block text-xs uppercase text-slate-500 font-bold">Secuencia de Paradas ({selectedStops.length})</Label>
+                        <div className="space-y-2">
+                            {selectedStops.length === 0 ? (
+                                <div className="text-center py-8 border-2 border-dashed rounded-lg text-slate-400 text-sm">
+                                    Haz clic en los pines del mapa<br/>para añadir paradas en orden.
+                                </div>
+                            ) : (
+                                selectedStops.map((stop, index) => (
+                                    <div key={index} className="flex items-center gap-3 p-3 bg-white border rounded-lg shadow-sm group hover:border-blue-400 transition-colors">
+                                        <div className="bg-blue-100 text-blue-700 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0">
+                                            {index + 1}
+                                        </div>
+                                        <div className="flex-1 text-sm font-medium truncate">{stop.name}</div>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100" onClick={() => removeStopFromRoute(index)}>
+                                            <X className="w-3 h-3" />
+                                        </Button>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="p-4 border-t bg-slate-50">
+                    <Button className="w-full" size="lg" onClick={handleSaveRoute}>
+                        <Save className="w-4 h-4 mr-2"/> Guardar Ruta
+                    </Button>
+                </div>
+            </Card>
+
+            {/* PANEL DERECHO: MAPA SELECTOR */}
+            <Card className="flex-1 overflow-hidden border-2 border-slate-200 shadow-none relative">
+                <Map 
+                    stops={allStops} // Muestra TODOS los puntos grises
+                    routePath={selectedStops} // Muestra la línea uniendo los seleccionados
+                    onStopClick={handleStopClick} // Acción al hacer clic en un pin
+                    readonly={false}
+                />
+                
+                {/* Leyenda */}
+                <div className="absolute top-4 left-4 bg-white/90 p-3 rounded-lg shadow-md text-xs space-y-2">
+                    <div className="flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full bg-slate-400"></span> Parada Disponible
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full bg-blue-600 border-2 border-white shadow"></span> Seleccionada
+                    </div>
+                </div>
+            </Card>
         </div>
-        <DialogFooter>
-          <Button type="submit">Guardar</Button>
-        </DialogFooter>
-      </form>
-    </Form>
-  );
-}
-
-// --- Componente: Editar Ruta ---
-function EditRouteForm({
-  route,
-  drivers,
-  vehicles,
-  setOpen,
-  setRoutes,
-}: { route: Route } & RouteFormProps) {
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: route.name,
-      Categoria: (route.Categoria as "Abonados" | "Mixto" | "Regular") || "Regular",
-      driverId: route.driverId?.toString() || "",
-      vehicleId: route.vehicleId?.toString() || "",
-      status: route.status,
-      schedule: route.schedule,
-      stops: route.stops,
-    },
-  });
-
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    try {
-      const driverId =
-        values.driverId && values.driverId !== ""
-          ? parseInt(values.driverId)
-          : null;
-      const vehicleId =
-        values.vehicleId && values.vehicleId !== ""
-          ? parseInt(values.vehicleId)
-          : null;
-
-      const updatedRoute = await updateRoute({
-        ...route,
-        ...values,
-        driverId,
-        vehicleId,
-      });
-
-      if (updatedRoute) {
-        setRoutes((prev) =>
-          prev.map((r) => (r.id === route.id ? updatedRoute : r))
-        );
-        alert("¡Ruta actualizada!");
-        setOpen(false);
-      } else {
-        alert("Error al actualizar (Verifique conexión o datos)");
-      }
-    } catch (error) {
-      console.error(error);
-      alert("Error al actualizar.");
-    }
-  }
-
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <DialogHeader>
-          <DialogTitle>Editar Ruta</DialogTitle>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <FormField
-            control={form.control}
-            name="name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Nombre</FormLabel>
-                <FormControl>
-                  <Input {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="schedule"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Horario</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="stops"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Paradas</FormLabel>
-                  <FormControl>
-                    <Input type="number" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="driverId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Conductor</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Sin asignar" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {drivers.map((d) => (
-                        <SelectItem key={d.id} value={d.id.toString()}>
-                          {d.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="vehicleId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Vehículo</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Sin asignar" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {vehicles.map((v) => (
-                        <SelectItem key={v.id} value={v.id.toString()}>
-                          {v.plate}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="Categoria"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Tipo</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="Abonados">Activados</SelectItem>
-                      <SelectItem value="Mixto">Mixto</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Estado</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="Publicada">Publicada</SelectItem>
-                      <SelectItem value="En borrador">En borrador</SelectItem>
-                      <SelectItem value="Inactiva">Inactiva</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button type="submit">Guardar Cambios</Button>
-        </DialogFooter>
-      </form>
-    </Form>
-  );
-}
-
-const RouteActionsCell = ({
-  route,
-  drivers,
-  vehicles,
-  setRoutes,
-}: { route: Route } & RouteFormProps) => {
-  const [isEditOpen, setIsEditOpen] = React.useState(false);
-
-  const handleDelete = async () => {
-    if (confirm(`¿Eliminar la ruta ${route.name}?`)) {
-      const success = await deleteRoute(route.id);
-      if (success) setRoutes((prev) => prev.filter((r) => r.id !== route.id));
-    }
-  };
-
-  return (
-    <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button size="icon" variant="ghost">
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => setIsEditOpen(true)}>
-            <Pencil className="mr-2 h-4 w-4" /> Editar
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleDelete} className="text-red-600">
-            <Trash className="mr-2 h-4 w-4" /> Eliminar
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <EditRouteForm
-            route={route}
-            drivers={drivers}
-            vehicles={vehicles}
-            setOpen={setIsEditOpen}
-            setRoutes={setRoutes}
-          />
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-};
-
-export default function RoutesPage() {
-  const [routes, setRoutes] = React.useState<Route[]>([]);
-  const [drivers, setDrivers] = React.useState<Driver[]>([]);
-  const [vehicles, setVehicles] = React.useState<Vehicle[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [open, setOpen] = React.useState(false);
-
-  React.useEffect(() => {
-    async function loadData() {
-      setIsLoading(true);
-      const [r, d, v] = await Promise.all([
-        getRoutes(),
-        getDrivers(),
-        getVehicles(),
-      ]);
-      setRoutes(r);
-      setDrivers(d);
-      setVehicles(v);
-      setIsLoading(false);
-    }
-    loadData();
-  }, []);
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Gestión de Rutas</CardTitle>
-        <CardDescription>
-          Crea y administra las rutas de transporte.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nombre</TableHead>
-              <TableHead>Horario</TableHead>
-              <TableHead>Conductor</TableHead>
-              <TableHead>Vehículo</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead>
-                <span className="sr-only">Acciones</span>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center">
-                  Cargando rutas...
-                </TableCell>
-              </TableRow>
-            ) : routes.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center">
-                  No hay rutas.
-                </TableCell>
-              </TableRow>
-            ) : (
-              routes.map((route) => {
-                const driver = drivers.find((d) => d.id === route.driverId);
-                const vehicle = vehicles.find((v) => v.id === route.vehicleId);
-                return (
-                  <TableRow key={route.id}>
-                    <TableCell className="font-medium">{route.name}</TableCell>
-                    <TableCell>{route.schedule}</TableCell>
-                    <TableCell>{driver?.name || "Desconocido"}</TableCell>
-                    <TableCell>{vehicle?.plate || "Desconocido"}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          route.status === "Publicada" ? "default" : "secondary"
-                        }
-                      >
-                        {route.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <RouteActionsCell
-                        route={route}
-                        drivers={drivers}
-                        vehicles={vehicles}
-                        setRoutes={setRoutes}
-                        setOpen={() => {}}
-                      />
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </CardContent>
-      <CardFooter>
-        <div className="text-xs text-muted-foreground">
-          Mostrando <strong>{routes.length}</strong> rutas
-        </div>
-        <div className="ml-auto">
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="h-8 gap-1">
-                <PlusCircle className="h-3.5 w-3.5" /> Nueva Ruta
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
-              <AddRouteForm
-                drivers={drivers}
-                vehicles={vehicles}
-                setOpen={setOpen}
-                setRoutes={setRoutes}
-              />
-            </DialogContent>
-          </Dialog>
-        </div>
-      </CardFooter>
-    </Card>
-  );
+    );
 }

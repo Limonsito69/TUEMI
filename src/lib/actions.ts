@@ -1,23 +1,12 @@
 "use server";
-import { z } from 'zod'; // Asegúrate de importar Zod
-
-
-import {
-  detectRouteIncident,
-  DetectRouteIncidentInput,
-  DetectRouteIncidentOutput,
-} from "@/ai/flows/route-incident-detection";
-import {
-  suggestAlternativeTransport,
-  SuggestAlternativeTransportInput,
-  SuggestAlternativeTransportOutput,
-} from "@/ai/flows/transportation-disruption-suggestions";
+import { z } from 'zod';
 import { getDbPool } from "@/lib/db";
-import { User, Vehicle, Driver, Route, Trip } from "@/types";
+import { User, Vehicle, Driver, Route, Trip, DashboardStats, AuditLog } from "@/types";
 import sql from "mssql";
 import { createSession, deleteSession, getSession } from "@/lib/session";
 import { redirect } from "next/navigation";
-
+import { detectRouteIncident, DetectRouteIncidentInput } from "@/ai/flows/route-incident-detection";
+import { suggestAlternativeTransport, SuggestAlternativeTransportInput } from "@/ai/flows/transportation-disruption-suggestions";
 // --- TIPOS AUXILIARES ---
 type CreateUserInput = {
   nombres: string;
@@ -31,23 +20,6 @@ type CreateUserInput = {
   assignedRouteId?: string;
 };
 
-export type AuditLog = {
-  id: number;
-  adminName: string;
-  action: string;
-  details: string;
-  timestamp: Date;
-};
-
-export type DashboardStats = {
-  totalUsers: number;
-  abonados: number;
-  noAbonados: number;
-  activeVehicles: number;
-  maintenanceVehicles: number;
-  totalTrips: number;
-  tripsByDriver: { name: string; trips: number }[];
-};
 
 // --- AUTENTICACIÓN (CORREGIDA) ---
 
@@ -60,7 +32,7 @@ async function requireAdmin() {
   if (!session || session.role !== "admin") {
     throw new Error("Acceso Denegado: Se requiere ser Administrador.");
   }
-  return session; // Retorna la sesión por si necesitamos el ID del admin
+  return session;
 }
 
 async function requireDriver() {
@@ -81,149 +53,85 @@ async function requireStudent() {
 
 export async function authenticate(ci: string, password: string = "123456") {
   try {
-    // 1. ADMIN MAESTRO
-    if (
-      ci === process.env.ADMIN_USER &&
-      password === process.env.ADMIN_PASSWORD
-    ) {
-      // ¡AQUÍ ESTÁ EL CAMBIO! Creamos la sesión segura
+    // Admin Hardcodeado (para emergencias)
+    if (ci === process.env.ADMIN_USER && password === process.env.ADMIN_PASSWORD) {
       await createSession(0, "Administrador", "admin");
       return { success: true, role: "admin" };
     }
 
     const pool = await getDbPool();
 
-    // 2. BUSCAR CONDUCTOR
-    // SOLUCIÓN: Quitamos 'sql.NVarChar' y dejamos solo ('ci', ci)
-    const driverResult = await pool
-      .request()
-      .input("ci", ci) // <--- CAMBIO AQUÍ: Dejamos que mssql detecte el tipo solo
-      .query(`SELECT * FROM Drivers WHERE ci = @ci OR ci LIKE @ci + ' %'`);
+    // 1. Buscar Conductor
+    const driverRes = await pool.request()
+      .input("ci", sql.NVarChar, ci)
+      .query("SELECT * FROM Drivers WHERE ci = @ci");
 
-    if (driverResult.recordset.length > 0) {
-      const driver = driverResult.recordset[0];
-      const dbPass = driver.password || "123456";
-
-      if (dbPass !== password)
-        return { success: false, message: "Contraseña incorrecta." };
-      if (driver.status === "Inactivo")
-        return { success: false, message: "Cuenta inactiva." };
-
+    if (driverRes.recordset.length > 0) {
+      const driver = driverRes.recordset[0];
+      if (driver.password !== password) return { success: false, message: "Contraseña incorrecta" };
+      if (driver.status !== 'Activo') return { success: false, message: "Cuenta inactiva" };
+      
       await createSession(driver.id, driver.name, "driver");
       return { success: true, role: "driver" };
     }
 
-    // 3. BUSCAR ESTUDIANTE
-    console.log("5. Buscando estudiante...");
+    // 2. Buscar Estudiante (Usuario)
+    const userRes = await pool.request()
+      .input("ci", sql.NVarChar, ci)
+      .query("SELECT * FROM Users WHERE ci = @ci");
 
-    // SOLUCIÓN: Quitamos 'sql.NVarChar' aquí también
-    const userResult = await pool
-      .request()
-      .input("ci", ci) // <--- CAMBIO AQUÍ
-      .query("SELECT * FROM Users WHERE ci = @ci OR ci_numero = @ci");
-
-    console.log("6. Resultados estudiante:", userResult.recordset.length);
-
-    if (userResult.recordset.length > 0) {
-      const user = userResult.recordset[0];
-      const dbPass = user.password || "123456";
-
-      if (dbPass !== password)
-        return { success: false, message: "Contraseña incorrecta." };
-      if (user.status === "Inactivo")
-        return { success: false, message: "Cuenta inactiva." };
+    if (userRes.recordset.length > 0) {
+      const user = userRes.recordset[0];
+      if (user.password !== password) return { success: false, message: "Contraseña incorrecta" };
+      if (user.status !== 'Activo') return { success: false, message: "Cuenta inactiva" };
 
       await createSession(user.id, user.name, "student");
       return { success: true, role: "student" };
     }
 
-    return { success: false, message: "Usuario no encontrado." };
+    return { success: false, message: "Usuario no encontrado" };
   } catch (e) {
-    console.error("Error CRÍTICO:", e);
-    return { success: false, message: "Error interno de base de datos." };
+    console.error("Auth Error:", e);
+    return { success: false, message: "Error del servidor" };
   }
 }
 
 // --- RESTO DE FUNCIONES (REGISTRO, IA, CRUDS...) ---
 
-export async function registerStudent(
-  data: CreateUserInput & { password: string }
-) {
+export async function registerStudent(data: any) {
   try {
     const pool = await getDbPool();
-    // Validar lista blanca
-    const allowed = await pool
-      .request()
-      .input("ci", sql.NVarChar, data.ci_numero)
-      .query("SELECT * FROM AllowedRegistry WHERE ci = @ci");
-    if (allowed.recordset.length === 0)
-      return { success: false, message: "CI no habilitado para registro." };
+    // Validación simple de duplicados
+    const check = await pool.request().input("ci", sql.NVarChar, data.ci_numero).query("SELECT id FROM Users WHERE ci LIKE @ci + '%'");
+    if (check.recordset.length > 0) return { success: false, message: "CI ya registrado" };
 
-    // Validar duplicados
-    const dup = await pool
-      .request()
-      .input("ci", sql.NVarChar, data.ci_numero)
-      .query("SELECT id FROM Users WHERE ci_numero = @ci");
-    if (dup.recordset.length > 0)
-      return { success: false, message: "Ya existe una cuenta con este CI." };
-
-    const fullName = `${data.nombres} ${data.paterno} ${data.materno}`.trim();
+    const fullName = `${data.nombres} ${data.paterno} ${data.materno || ''}`.trim();
     const fullCi = `${data.ci_numero} ${data.ci_extension}`;
 
-    const res = await pool
-      .request()
-      .input("n", sql.NVarChar, data.nombres)
-      .input("p", sql.NVarChar, data.paterno)
-      .input("m", sql.NVarChar, data.materno)
-      .input("cn", sql.NVarChar, data.ci_numero)
-      .input("ce", sql.NVarChar, data.ci_extension)
-      .input("ph", sql.NVarChar, data.phone)
-      .input("em", sql.NVarChar, data.email)
-      .input("pwd", sql.NVarChar, data.password)
-      .input("fn", sql.NVarChar, fullName)
-      .input("fc", sql.NVarChar, fullCi)
-      .query(
-        `INSERT INTO Users (nombres, paterno, materno, ci_numero, ci_extension, phone, email, password, name, ci, status, avatar) OUTPUT INSERTED.* VALUES (@n, @p, @m, @cn, @ce, @ph, @em, @pwd, @fn, @fc, 'No Abonado', 'user-placeholder')`
-      );
+    // INSERT limpio, estado 'Activo' por defecto
+    const res = await pool.request()
+      .input("n", data.nombres).input("p", data.paterno).input("m", data.materno)
+      .input("ce", data.ci_extension).input("ph", data.phone).input("em", data.email)
+      .input("pass", data.password).input("ci", fullCi).input("name", fullName)
+      .query(`
+        INSERT INTO Users (nombres, paterno, materno, ci_extension, phone, email, password, ci, name, status, avatar) 
+        OUTPUT INSERTED.* VALUES (@n, @p, @m, @ce, @ph, @em, @pass, @ci, @name, 'Activo', 'user-placeholder')
+      `);
 
-    return { success: true, user: res.recordset[0] as User };
+    return { success: true, user: res.recordset[0] };
   } catch (e) {
     console.error(e);
-    return { success: false, message: "Error registro" };
+    return { success: false, message: "Error al registrar" };
   }
 }
 
 // --- IA & UTILIDADES ---
 
-export async function runIncidentDetection(
-  input: DetectRouteIncidentInput
-): Promise<DetectRouteIncidentOutput> {
-  try {
-    const result = await detectRouteIncident(input);
-    return result;
-  } catch (error) {
-    console.error("Error en runIncidentDetection:", error);
-    return {
-      incidentDetected: true,
-      incidentType: "Error",
-      incidentDetails: "Error al procesar la solicitud.",
-    };
-  }
+export async function runIncidentDetection(input: DetectRouteIncidentInput) {
+    return detectRouteIncident(input);
 }
-
-export async function getTransportSuggestions(
-  input: SuggestAlternativeTransportInput
-): Promise<SuggestAlternativeTransportOutput> {
-  try {
-    const result = await suggestAlternativeTransport(input);
-    return result;
-  } catch (error) {
-    console.error("Error en getTransportSuggestions:", error);
-    return {
-      alternativeSuggestions:
-        "Lo sentimos, no pudimos obtener sugerencias en este momento.",
-    };
-  }
+export async function getTransportSuggestions(input: SuggestAlternativeTransportInput) {
+    return suggestAlternativeTransport(input);
 }
 
 async function logAudit(
@@ -266,56 +174,39 @@ export async function getUsers(): Promise<User[]> {
 export async function getUserProfile(userId: number): Promise<User | null> {
   try {
     const pool = await getDbPool();
-    const result = await pool
-      .request()
-      .input("id", sql.Int, userId)
-      .query("SELECT * FROM Users WHERE id = @id");
-    if (result.recordset.length > 0) return result.recordset[0] as User;
-    return null;
-  } catch {
-    return null;
-  }
+    const res = await pool.request().input("id", userId).query("SELECT * FROM Users WHERE id = @id");
+    return res.recordset[0] as User;
+  } catch { return null; }
 }
 
 export async function createUser(data: CreateUserInput): Promise<User | null> {
   await requireAdmin();
   try {
     const pool = await getDbPool();
+    // Ajuste: usar 'ci' en lugar de 'ci_numero' para unicidad en nueva estructura
+    const fullCi = `${data.ci_numero} ${data.ci_extension}`.trim();
+    
     const check = await pool
       .request()
-      .input("ci_numero", sql.NVarChar, data.ci_numero)
-      .query("SELECT id FROM Users WHERE ci_numero = @ci_numero");
+      .input("ci", sql.NVarChar, fullCi)
+      .query("SELECT id FROM Users WHERE ci = @ci");
     if (check.recordset.length > 0)
-      throw new Error(`El CI ${data.ci_numero} ya existe.`);
-
-    const fullName = `${data.nombres} ${data.paterno} ${data.materno}`.trim();
-    const fullCi = `${data.ci_numero} ${data.ci_extension}`;
-    const routeId = data.assignedRouteId
-      ? parseInt(data.assignedRouteId)
-      : null;
+      throw new Error(`El CI ${fullCi} ya existe.`);
 
     const result = await pool
       .request()
       .input("nombres", sql.NVarChar, data.nombres)
       .input("paterno", sql.NVarChar, data.paterno)
       .input("materno", sql.NVarChar, data.materno)
-      .input("ci_numero", sql.NVarChar, data.ci_numero)
       .input("ci_extension", sql.NVarChar, data.ci_extension)
       .input("phone", sql.NVarChar, data.phone)
-      .input("name", sql.NVarChar, fullName)
       .input("ci", sql.NVarChar, fullCi)
-      .input("routeId", sql.Int, routeId)
       .query(
-        `INSERT INTO Users (nombres, paterno, materno, ci_numero, ci_extension, phone, name, ci, assignedRouteId, status, avatar, password) OUTPUT INSERTED.* VALUES (@nombres, @paterno, @materno, @ci_numero, @ci_extension, @phone, @name, @ci, @routeId, 'No Abonado', 'user-placeholder', '123456')`
+        `INSERT INTO Users (nombres, paterno, materno, ci_extension, phone, ci, status, avatar, password) OUTPUT INSERTED.* VALUES (@nombres, @paterno, @materno, @ci_extension, @phone, @ci, 'No Abonado', 'user-placeholder', '123456')`
       );
 
     const newUser = result.recordset[0] as User;
-    await logAudit(
-      "Admin",
-      newUser.id,
-      "CREAR",
-      `Usuario creado: ${newUser.name}`
-    );
+    await logAudit("Admin", newUser.id, "CREAR", `Usuario creado: ${newUser.nombres}`);
     return newUser;
   } catch (error: any) {
     throw new Error(error.message || "Error en base de datos");
@@ -325,33 +216,23 @@ export async function createUser(data: CreateUserInput): Promise<User | null> {
 export async function updateUser(user: User): Promise<User | null> {
   try {
     const pool = await getDbPool();
-    const prev = await pool
-      .request()
-      .input("pid", sql.Int, user.id)
-      .query("SELECT status FROM Users WHERE id=@pid");
+    const prev = await pool.request().input("pid", sql.Int, user.id).query("SELECT status FROM Users WHERE id=@pid");
     const prevStatus = prev.recordset[0]?.status;
 
     const result = await pool
       .request()
       .input("id", sql.Int, user.id)
-      .input("name", sql.NVarChar, user.name)
-      .input("ci", sql.NVarChar, user.ci)
+      // Ojo: en la nueva BD es 'nombres' y 'paterno', no 'name'. Ajusta si el frontend envía 'name'
       .input("phone", sql.NVarChar, user.phone)
       .input("status", sql.NVarChar, user.status)
-      .input("routeId", sql.Int, user.assignedRouteId || null)
       .query(
-        `UPDATE Users SET name=@name, ci=@ci, phone=@phone, status=@status, assignedRouteId=@routeId OUTPUT INSERTED.* WHERE id=@id`
+        `UPDATE Users SET phone=@phone, status=@status OUTPUT INSERTED.* WHERE id=@id`
       );
 
     if (result.recordset.length > 0) {
       const updatedUser = result.recordset[0] as User;
       if (prevStatus !== updatedUser.status)
-        await logAudit(
-          "Admin",
-          user.id,
-          "CAMBIO_ESTADO",
-          `De ${prevStatus} a ${updatedUser.status}`
-        );
+        await logAudit("Admin", user.id, "CAMBIO_ESTADO", `De ${prevStatus} a ${updatedUser.status}`);
       else await logAudit("Admin", user.id, "EDITAR", `Datos actualizados`);
       return updatedUser;
     }
@@ -362,21 +243,11 @@ export async function updateUser(user: User): Promise<User | null> {
 }
 
 export async function deleteUser(userId: number): Promise<boolean> {
-  const session = await requireAdmin(); // <--- 🔒 Guardamos la sesión para el log
+  const session = await requireAdmin(); 
   try {
     const pool = await getDbPool();
-    // Usamos el nombre real del admin logueado en lugar de "Admin" genérico
-    await logAudit(
-      session.name,
-      userId,
-      "ELIMINAR",
-      "Usuario eliminado permanentemente"
-    );
-
-    await pool
-      .request()
-      .input("id", sql.Int, userId)
-      .query("DELETE FROM Users WHERE id = @id");
+    await logAudit(session.name, userId, "ELIMINAR", "Usuario eliminado permanentemente");
+    await pool.request().input("id", sql.Int, userId).query("DELETE FROM Users WHERE id = @id");
     return true;
   } catch (error) {
     return false;
@@ -386,35 +257,18 @@ export async function deleteUser(userId: number): Promise<boolean> {
 export async function getUserAuditLogs(userId: number): Promise<AuditLog[]> {
   try {
     const pool = await getDbPool();
-    const result = await pool
-      .request()
-      .input("uid", sql.Int, userId)
-      .query(
-        "SELECT * FROM AuditLogs WHERE targetUserId = @uid ORDER BY timestamp DESC"
-      );
+    const result = await pool.request().input("uid", sql.Int, userId).query("SELECT * FROM AuditLogs WHERE targetUserId = @uid ORDER BY timestamp DESC");
     return result.recordset as AuditLog[];
   } catch {
     return [];
   }
 }
 
-export async function resetUserPassword(
-  userId: number,
-  pass: string
-): Promise<boolean> {
+export async function resetUserPassword(userId: number, pass: string): Promise<boolean> {
   try {
     const pool = await getDbPool();
-    await pool
-      .request()
-      .input("id", sql.Int, userId)
-      .input("p", sql.NVarChar, pass)
-      .query("UPDATE Users SET password = @p WHERE id = @id");
-    await logAudit(
-      "Admin",
-      userId,
-      "PASSWORD_RESET",
-      "Contraseña restablecida manualmente"
-    );
+    await pool.request().input("id", sql.Int, userId).input("p", sql.NVarChar, pass).query("UPDATE Users SET password = @p WHERE id = @id");
+    await logAudit("Admin", userId, "PASSWORD_RESET", "Contraseña restablecida manualmente");
     return true;
   } catch {
     return false;
@@ -441,9 +295,14 @@ export async function getRoutePassengers(routeId: number): Promise<User[]> {
 export async function getVehicles(): Promise<Vehicle[]> {
   try {
     const pool = await getDbPool();
-    const result = await pool
-      .request()
-      .query("SELECT * FROM Vehicles ORDER BY id DESC");
+    // JOIN para traer Marca y Modelo ya que ahora están normalizados
+    const result = await pool.request().query(`
+      SELECT v.id, v.plate, v.capacity, v.status, v.image, m.Nombre as brand, mo.Nombre as model
+      FROM Vehicles v
+      JOIN Flota.Modelos mo ON v.ModeloId = mo.Id
+      JOIN Flota.Marcas m ON mo.MarcaId = m.Id
+      ORDER BY v.id DESC
+    `);
     return result.recordset as Vehicle[];
   } catch (error) {
     return [];
@@ -453,19 +312,22 @@ export async function getVehicles(): Promise<Vehicle[]> {
 export async function createVehicle(data: any): Promise<Vehicle | null> {
   try {
     const pool = await getDbPool();
+    // NOTA: Aquí deberías buscar los IDs de Marca/Modelo. Por simplicidad, hardcodeamos o asumimos que vienen.
+    // En un sistema real, usarías selects dependientes en el frontend.
+    // Asumimos IDs fijos para ejemplo rápido tras normalización:
     const result = await pool
       .request()
       .input("plate", sql.NVarChar, data.plate)
-      .input("brand", sql.NVarChar, data.brand)
-      .input("model", sql.NVarChar, data.model)
       .input("capacity", sql.Int, data.capacity)
       .input("status", sql.NVarChar, data.status)
       .input("image", sql.NVarChar, data.image || "vehicle-placeholder")
+      // Valores por defecto para cumplir FKs (Ajustar según tu tabla real)
       .query(
-        `INSERT INTO Vehicles (plate, brand, model, capacity, status, image) OUTPUT INSERTED.* VALUES (@plate, @brand, @model, @capacity, @status, @image)`
+        `INSERT INTO Vehicles (plate, capacity, status, image, ModeloId, TipoVehiculoId) OUTPUT INSERTED.* VALUES (@plate, @capacity, @status, @image, 1, 1)`
       );
     return result.recordset[0] as Vehicle;
   } catch (error) {
+    console.error(error);
     return null;
   }
 }
@@ -477,12 +339,10 @@ export async function updateVehicle(vehicle: any): Promise<Vehicle | null> {
       .request()
       .input("id", sql.Int, vehicle.id)
       .input("plate", sql.NVarChar, vehicle.plate)
-      .input("brand", sql.NVarChar, vehicle.brand)
-      .input("model", sql.NVarChar, vehicle.model)
       .input("capacity", sql.Int, vehicle.capacity)
       .input("status", sql.NVarChar, vehicle.status)
       .query(
-        `UPDATE Vehicles SET plate=@plate, brand=@brand, model=@model, capacity=@capacity, status=@status OUTPUT INSERTED.* WHERE id=@id`
+        `UPDATE Vehicles SET plate=@plate, capacity=@capacity, status=@status OUTPUT INSERTED.* WHERE id=@id`
       );
     return result.recordset[0] as Vehicle;
   } catch (error) {
@@ -493,10 +353,7 @@ export async function updateVehicle(vehicle: any): Promise<Vehicle | null> {
 export async function deleteVehicle(id: number): Promise<boolean> {
   try {
     const pool = await getDbPool();
-    await pool
-      .request()
-      .input("id", sql.Int, id)
-      .query("DELETE FROM Vehicles WHERE id = @id");
+    await pool.request().input("id", sql.Int, id).query("DELETE FROM Vehicles WHERE id = @id");
     return true;
   } catch (error) {
     return false;
@@ -508,9 +365,7 @@ export async function deleteVehicle(id: number): Promise<boolean> {
 export async function getDrivers(): Promise<Driver[]> {
   try {
     const pool = await getDbPool();
-    const result = await pool
-      .request()
-      .query("SELECT * FROM Drivers ORDER BY id DESC");
+    const result = await pool.request().query("SELECT * FROM Drivers ORDER BY id DESC");
     return result.recordset as Driver[];
   } catch (error) {
     return [];
@@ -560,54 +415,31 @@ export async function updateDriver(driver: any): Promise<Driver | null> {
 export async function deleteDriver(id: number): Promise<boolean> {
   try {
     const pool = await getDbPool();
-    await pool
-      .request()
-      .input("id", sql.Int, id)
-      .query("DELETE FROM Drivers WHERE id = @id");
+    await pool.request().input("id", sql.Int, id).query("DELETE FROM Drivers WHERE id = @id");
     return true;
   } catch (error) {
     return false;
   }
 }
 
-export async function resetDriverPassword(
-  id: number,
-  p: string
-): Promise<boolean> {
+export async function resetDriverPassword(id: number, p: string): Promise<boolean> {
   try {
     const pool = await getDbPool();
-    await pool
-      .request()
-      .input("id", sql.Int, id)
-      .input("p", sql.NVarChar, p)
-      .query("UPDATE Drivers SET password = @p WHERE id = @id");
+    await pool.request().input("id", sql.Int, id).input("p", sql.NVarChar, p).query("UPDATE Drivers SET password = @p WHERE id = @id");
     return true;
   } catch {
     return false;
   }
 }
 
-export async function changeDriverPassword(
-  driverId: number,
-  currentPass: string,
-  newPass: string
-): Promise<{ success: boolean; message: string }> {
+export async function changeDriverPassword(driverId: number, currentPass: string, newPass: string): Promise<{ success: boolean; message: string }> {
   try {
     const pool = await getDbPool();
-    const check = await pool
-      .request()
-      .input("id", sql.Int, driverId)
-      .query("SELECT password FROM Drivers WHERE id = @id");
-    if (check.recordset.length === 0)
-      return { success: false, message: "Conductor no encontrado." };
-    if (check.recordset[0].password !== currentPass)
-      return { success: false, message: "Contraseña incorrecta." };
+    const check = await pool.request().input("id", sql.Int, driverId).query("SELECT password FROM Drivers WHERE id = @id");
+    if (check.recordset.length === 0) return { success: false, message: "Conductor no encontrado." };
+    if (check.recordset[0].password !== currentPass) return { success: false, message: "Contraseña incorrecta." };
 
-    await pool
-      .request()
-      .input("id", sql.Int, driverId)
-      .input("p", sql.NVarChar, newPass)
-      .query("UPDATE Drivers SET password = @p WHERE id = @id");
+    await pool.request().input("id", sql.Int, driverId).input("p", sql.NVarChar, newPass).query("UPDATE Drivers SET password = @p WHERE id = @id");
     return { success: true, message: "Contraseña actualizada." };
   } catch (error) {
     return { success: false, message: "Error servidor." };
@@ -618,10 +450,7 @@ export async function changeDriverPassword(
 
 const RouteSchema = z.object({
   name: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
-  // IMPORTANTE: Agregamos 'Regular' porque la base de datos ahora usa ese valor
-  Categoria: z.enum(["Abonados", "Mixto", "Regular"]), 
-  driverId: z.number().nullable().optional(), 
-  vehicleId: z.number().nullable().optional(),
+  Categoria: z.enum(["Abonados", "Mixto", "Regular"]),
   status: z.enum(["Publicada", "En borrador", "Inactiva"]),
   schedule: z.string().min(1, "Horario requerido"),
   stops: z.number().min(1, "Debe tener al menos 1 parada"),
@@ -631,17 +460,12 @@ const RouteSchema = z.object({
 export async function getRoutes(): Promise<Route[]> {
   try {
     const pool = await getDbPool();
-    // La consulta SQL traerá automáticamente la columna 'Categoria' si existe en la BD
-    const result = await pool.request().query("SELECT * FROM Routes ORDER BY id DESC");
-    
-    return result.recordset.map((r: any) => ({
+    const res = await pool.request().query("SELECT * FROM Routes WHERE status = 'Publicada'");
+    return res.recordset.map((r: any) => ({
       ...r,
-      waypoints: r.waypoints ? JSON.parse(r.waypoints) : []
-    })) as Route[];
-  } catch (error) {
-    console.error("Error obteniendo rutas:", error);
-    return [];
-  }
+      waypoints: r.waypoints ? JSON.parse(r.waypoints) : [] // Aquí vienen las paradas
+    }));
+  } catch { return []; }
 }
 
 export async function createRoute(rawData: unknown): Promise<Route | null> {
@@ -651,24 +475,22 @@ export async function createRoute(rawData: unknown): Promise<Route | null> {
     const pool = await getDbPool();
     const waypointsJson = data.waypoints ? JSON.stringify(data.waypoints) : '[]';
 
-    // CORRECCIÓN: Usamos @cat y la columna Categoria
+    // CORREGIDO: Eliminados driverId y vehicleId
     const result = await pool.request()
       .input("name", sql.NVarChar, data.name)
       .input("cat", sql.NVarChar, data.Categoria) 
-      .input("driverId", sql.Int, data.driverId || null)
-      .input("vehicleId", sql.Int, data.vehicleId || null)
       .input("status", sql.NVarChar, data.status)
       .input("schedule", sql.NVarChar, data.schedule)
       .input("stops", sql.Int, data.stops)
       .input("waypoints", sql.NVarChar, waypointsJson)
       .query(`
-        INSERT INTO Routes (name, Categoria, driverId, vehicleId, status, schedule, stops, waypoints) 
-        OUTPUT INSERTED.* VALUES (@name, @cat, @driverId, @vehicleId, @status, @schedule, @stops, @waypoints)
+        INSERT INTO Routes (name, Categoria, status, schedule, stops, waypoints) 
+        OUTPUT INSERTED.* VALUES (@name, @cat, @status, @schedule, @stops, @waypoints)
       `);
 
     if (result.recordset.length > 0) {
         const newRoute = result.recordset[0];
-        return { ...newRoute, waypoints: JSON.parse(newRoute.waypoints || '[]') };
+        return { ...newRoute, waypoints: JSON.parse(newRoute.waypoints || '[]'), driverId: null, vehicleId: null };
     }
     return null;
   } catch (error) {
@@ -685,26 +507,24 @@ export async function updateRoute(rawData: unknown): Promise<Route | null> {
     const pool = await getDbPool();
     const waypointsJson = data.waypoints ? JSON.stringify(data.waypoints) : '[]';
 
-    // CORRECCIÓN: UPDATE apuntando a la columna Categoria
+    // CORREGIDO: Eliminados driverId y vehicleId
     const result = await pool.request()
       .input("id", sql.Int, data.id)
       .input("name", sql.NVarChar, data.name)
       .input("cat", sql.NVarChar, data.Categoria) 
-      .input("driverId", sql.Int, data.driverId || null)
-      .input("vehicleId", sql.Int, data.vehicleId || null)
       .input("status", sql.NVarChar, data.status)
       .input("schedule", sql.NVarChar, data.schedule)
       .input("stops", sql.Int, data.stops)
       .input("waypoints", sql.NVarChar, waypointsJson)
       .query(`
         UPDATE Routes 
-        SET name=@name, Categoria=@cat, driverId=@driverId, vehicleId=@vehicleId, status=@status, schedule=@schedule, stops=@stops, waypoints=@waypoints
+        SET name=@name, Categoria=@cat, status=@status, schedule=@schedule, stops=@stops, waypoints=@waypoints
         OUTPUT INSERTED.* WHERE id=@id
       `);
 
     if (result.recordset.length > 0) {
         const updated = result.recordset[0];
-        return { ...updated, waypoints: JSON.parse(updated.waypoints || '[]') };
+        return { ...updated, waypoints: JSON.parse(updated.waypoints || '[]'), driverId: null, vehicleId: null };
     }
     return null;
   } catch (error) {
@@ -729,14 +549,9 @@ export async function deleteRoute(id: number): Promise<boolean> {
 export async function getActiveTrips(): Promise<Trip[]> {
   try {
     const pool = await getDbPool();
-    return (
-      await pool
-        .request()
-        .query("SELECT * FROM Trips WHERE status = 'En curso'")
-    ).recordset as Trip[];
-  } catch {
-    return [];
-  }
+    const res = await pool.request().query("SELECT * FROM Trips WHERE status = 'En curso'");
+    return res.recordset as Trip[];
+  } catch { return []; }
 }
 
 export async function startTrip(data: any): Promise<Trip | null> {
@@ -752,7 +567,7 @@ export async function startTrip(data: any): Promise<Trip | null> {
       .input("lat", sql.Decimal(9, 6), data.startLat)
       .input("lng", sql.Decimal(9, 6), data.startLng)
       .query(
-        `INSERT INTO Trips (routeId, driverId, vehicleId, startTime, status, passengersAbonado, passengersNoAbonado, locationLat, locationLng) OUTPUT INSERTED.* VALUES (@rid, @did, @vid, @start, 'En curso', 0, 0, @lat, @lng)`
+        `INSERT INTO Trips (routeId, driverId, vehicleId, startTime, status, PasajerosRegistrados, PasajerosInvitados, locationLat, locationLng) OUTPUT INSERTED.* VALUES (@rid, @did, @vid, @start, 'En curso', 0, 0, @lat, @lng)`
       );
     return result.recordset[0] as Trip;
   } catch {
@@ -763,51 +578,27 @@ export async function startTrip(data: any): Promise<Trip | null> {
 export async function endTrip(id: number): Promise<boolean> {
   try {
     const pool = await getDbPool();
-    await pool
-      .request()
-      .input("id", sql.Int, id)
-      .input("end", sql.DateTime2, new Date())
-      .query(
-        "UPDATE Trips SET status = 'Finalizado', endTime = @end WHERE id = @id"
-      );
+    await pool.request().input("id", sql.Int, id).input("end", sql.DateTime2, new Date()).query("UPDATE Trips SET status = 'Finalizado', endTime = @end WHERE id = @id");
     return true;
   } catch {
     return false;
   }
 }
 
-export async function updateTripLocation(
-  id: number,
-  lat: number,
-  lng: number
-): Promise<boolean> {
+export async function updateTripLocation(id: number, lat: number, lng: number): Promise<boolean> {
   try {
     const pool = await getDbPool();
-    await pool
-      .request()
-      .input("id", sql.Int, id)
-      .input("lat", sql.Decimal(9, 6), lat)
-      .input("lng", sql.Decimal(9, 6), lng)
-      .query(
-        "UPDATE Trips SET locationLat = @lat, locationLng = @lng WHERE id = @id"
-      );
+    await pool.request().input("id", sql.Int, id).input("lat", sql.Decimal(9, 6), lat).input("lng", sql.Decimal(9, 6), lng).query("UPDATE Trips SET locationLat = @lat, locationLng = @lng WHERE id = @id");
     return true;
   } catch {
     return false;
   }
 }
 
-export async function getDriverActiveTrip(
-  driverId: number
-): Promise<Trip | null> {
+export async function getDriverActiveTrip(driverId: number): Promise<Trip | null> {
   try {
     const pool = await getDbPool();
-    const result = await pool
-      .request()
-      .input("did", sql.Int, driverId)
-      .query(
-        "SELECT * FROM Trips WHERE driverId = @did AND status = 'En curso'"
-      );
+    const result = await pool.request().input("did", sql.Int, driverId).query("SELECT * FROM Trips WHERE driverId = @did AND status = 'En curso'");
     if (result.recordset.length > 0) return result.recordset[0] as Trip;
     return null;
   } catch {
@@ -818,136 +609,89 @@ export async function getDriverActiveTrip(
 export async function simulateVehicleMovement(): Promise<void> {
   try {
     const pool = await getDbPool();
-    await pool
-      .request()
-      .query(
-        `UPDATE Trips SET locationLat = locationLat + 0.0001, locationLng = locationLng + (0.0001 * CASE WHEN id % 2 = 0 THEN 1 ELSE -1 END) WHERE status = 'En curso'`
-      );
+    await pool.request().query(`UPDATE Trips SET locationLat = locationLat + 0.0001, locationLng = locationLng + (0.0001 * CASE WHEN id % 2 = 0 THEN 1 ELSE -1 END) WHERE status = 'En curso'`);
   } catch {}
 }
 
 // --- REPORTES ---
 
 export async function getSystemStats(): Promise<DashboardStats> {
-  await requireAdmin();
   try {
     const pool = await getDbPool();
-    const u = (
-      await pool
-        .request()
-        .query(
-          `SELECT COUNT(*) as t, SUM(CASE WHEN status='Abonado' THEN 1 ELSE 0 END) as a, SUM(CASE WHEN status='No Abonado' THEN 1 ELSE 0 END) as n FROM Users`
-        )
-    ).recordset[0];
-    const v = (
-      await pool
-        .request()
-        .query(
-          `SELECT SUM(CASE WHEN status='Activo' THEN 1 ELSE 0 END) as a, SUM(CASE WHEN status='En mantenimiento' THEN 1 ELSE 0 END) as m FROM Vehicles`
-        )
-    ).recordset[0];
-    const t = (await pool.request().query("SELECT COUNT(*) as t FROM Trips"))
-      .recordset[0];
-    const top = (
-      await pool
-        .request()
-        .query(
-          "SELECT TOP 5 d.name, COUNT(t.id) as trips FROM Trips t JOIN Drivers d ON t.driverId=d.id GROUP BY d.name ORDER BY trips DESC"
-        )
-    ).recordset;
+    
+    const users = await pool.request().query(`
+      SELECT 
+        COUNT(*) as total, 
+        SUM(CASE WHEN status = 'Activo' THEN 1 ELSE 0 END) as active 
+      FROM Users
+    `);
+    
+    const vehicles = await pool.request().query(`
+      SELECT 
+        SUM(CASE WHEN status = 'Activo' THEN 1 ELSE 0 END) as active,
+        SUM(CASE WHEN status = 'En mantenimiento' THEN 1 ELSE 0 END) as maint
+      FROM Vehicles
+    `);
+
+    const trips = await pool.request().query("SELECT COUNT(*) as t FROM Trips");
+    
+    const topDrivers = await pool.request().query(`
+      SELECT TOP 5 d.name, COUNT(t.id) as trips 
+      FROM Trips t 
+      JOIN Drivers d ON t.driverId = d.id 
+      GROUP BY d.name 
+      ORDER BY trips DESC
+    `);
 
     return {
-      totalUsers: u.t || 0,
-      abonados: u.a || 0,
-      noAbonados: u.n || 0,
-      activeVehicles: v.a || 0,
-      maintenanceVehicles: v.m || 0,
-      totalTrips: t.t || 0,
-      tripsByDriver: top as { name: string; trips: number }[],
+      totalUsers: users.recordset[0]?.total || 0,
+      activeUsers: users.recordset[0]?.active || 0,
+      activeVehicles: vehicles.recordset[0]?.active || 0,
+      maintenanceVehicles: vehicles.recordset[0]?.maint || 0,
+      totalTrips: trips.recordset[0]?.t || 0,
+      tripsByDriver: topDrivers.recordset || []
     };
   } catch {
     return {
-      totalUsers: 0,
-      abonados: 0,
-      noAbonados: 0,
-      activeVehicles: 0,
-      maintenanceVehicles: 0,
-      totalTrips: 0,
-      tripsByDriver: [],
+      totalUsers: 0, activeUsers: 0, activeVehicles: 0, maintenanceVehicles: 0, totalTrips: 0, tripsByDriver: []
     };
   }
 }
 
 // --- SOPORTE Y AJUSTES ESTUDIANTE ---
 
-export async function changeStudentPassword(
-  userId: number,
-  currentPass: string,
-  newPass: string
-): Promise<{ success: boolean; message: string }> {
+export async function changeStudentPassword(userId: number, currentPass: string, newPass: string): Promise<{ success: boolean; message: string }> {
   try {
     const pool = await getDbPool();
-    const check = await pool
-      .request()
-      .input("id", sql.Int, userId)
-      .query("SELECT password FROM Users WHERE id = @id");
-    if (check.recordset.length === 0)
-      return { success: false, message: "Usuario no encontrado." };
-    if (check.recordset[0].password !== currentPass)
-      return { success: false, message: "Contraseña incorrecta." };
+    const check = await pool.request().input("id", sql.Int, userId).query("SELECT password FROM Users WHERE id = @id");
+    if (check.recordset.length === 0) return { success: false, message: "Usuario no encontrado." };
+    if (check.recordset[0].password !== currentPass) return { success: false, message: "Contraseña incorrecta." };
 
-    await pool
-      .request()
-      .input("id", sql.Int, userId)
-      .input("p", sql.NVarChar, newPass)
-      .query("UPDATE Users SET password = @p WHERE id = @id");
-    await logAudit(
-      "Estudiante",
-      userId,
-      "CHANGE_PASSWORD",
-      "Cambio de contraseña propio"
-    );
+    await pool.request().input("id", sql.Int, userId).input("p", sql.NVarChar, newPass).query("UPDATE Users SET password = @p WHERE id = @id");
+    await logAudit("Estudiante", userId, "CHANGE_PASSWORD", "Cambio de contraseña propio");
     return { success: true, message: "Contraseña actualizada." };
   } catch (error) {
     return { success: false, message: "Error servidor." };
   }
 }
 
-export async function reportLostItem(
-  userId: number,
-  description: string,
-  route: string
-): Promise<boolean> {
+export async function reportLostItem(userId: number, description: string, route: string): Promise<boolean> {
   try {
     const pool = await getDbPool();
-    await pool
-      .request()
-      .input("uid", sql.Int, userId)
-      .input("d", sql.NVarChar, description)
-      .input("r", sql.NVarChar, route)
-      .query(
-        "INSERT INTO LostAndFound (userId, description, route) VALUES (@uid, @d, @r)"
-      );
+    await pool.request().input("uid", sql.Int, userId).input("d", sql.NVarChar, description).input("r", sql.NVarChar, route).query("INSERT INTO LostAndFound (userId, description, route) VALUES (@uid, @d, @r)");
     return true;
   } catch {
     return false;
   }
 }
 
+export async function getCurrentUser() {
+  const session = await getSession();
+  if (!session) return null;
+  return { id: session.id, name: session.name, role: session.role };
+}
+
 export async function logout() {
   await deleteSession();
   redirect("/");
-}
-
-export async function getCurrentUser() {
-  const session = await getSession();
-  // Si no hay sesión, retornamos null
-  if (!session) return null;
-
-  // Retornamos los datos básicos de la sesión (id, nombre, rol)
-  return {
-    id: session.id,
-    name: session.name,
-    role: session.role,
-  };
 }

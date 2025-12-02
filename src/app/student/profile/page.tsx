@@ -1,176 +1,114 @@
 'use client';
 
 import * as React from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { User } from '@/types';
+import { getCurrentUser, getUserProfile } from '@/lib/actions';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { QrCode, RefreshCw, LogOut } from 'lucide-react';
-import type { User } from '@/types';
-import { Skeleton } from '@/components/ui/skeleton';
-import { getUserProfile, getCurrentUser } from '@/lib/actions';
+import { LogOut, IdCard, School, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function StudentProfilePage() {
-  const [student, setStudent] = React.useState<User | null>(null);
-  const [isLoading, setIsLoading] = React.useState(true);
+  const [user, setUser] = React.useState<User | null>(null);
   const router = useRouter();
 
-  // Función para cargar datos
-  const loadProfile = React.useCallback(async () => {
-    setIsLoading(true);
-    try {
-      // 1. Pedir al servidor "quién soy" (En lugar de sessionStorage)
-      const sessionUser = await getCurrentUser();
-      
-      if (sessionUser && sessionUser.id) {
-          // 2. Pedir datos completos a la BD usando el ID de la sesión
-          const dbUser = await getUserProfile(sessionUser.id);
-          setStudent(dbUser);
+  React.useEffect(() => {
+    async function load() {
+      const session = await getCurrentUser();
+      if (session?.id) {
+        const profile = await getUserProfile(session.id);
+        setUser(profile);
       }
-    } catch (error) {
-        console.error("Error cargando perfil", error);
-    } finally {
-        setIsLoading(false);
     }
+    load();
   }, []);
 
-  React.useEffect(() => {
-    loadProfile();
-  }, [loadProfile]);
+  if (!user) return <div className="p-8 text-center text-muted-foreground">Cargando credencial...</div>;
 
-  const handleLogout = () => {
-    sessionStorage.removeItem('loggedInUser');
-    router.push('/');
-  };
-
-  if (isLoading) {
-    return (
-        <div className="grid gap-6">
-            <Card>
-                <CardHeader className="flex flex-row items-center gap-4">
-                    <Skeleton className="h-20 w-20 rounded-full" />
-                    <div className="grid gap-2">
-                        <Skeleton className="h-7 w-48" />
-                        <Skeleton className="h-4 w-32" />
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    <Skeleton className="h-10 w-40" />
-                </CardContent>
-            </Card>
-        </div>
-    )
-  }
-
-  if (!student) {
-      return (
-        <div className="flex flex-col items-center justify-center h-[50vh] gap-4">
-            <p className="text-muted-foreground">No se encontró información del usuario.</p>
-            <Button onClick={() => router.push('/')}>Volver al Inicio</Button>
-        </div>
-      );
-  }
-
-  const avatar = PlaceHolderImages.find((img) => img.id === student?.avatar);
-  
-  // Simulación de progreso de abono (en un sistema real, esto vendría de una tabla de Pagos/Suscripciones)
-  const tripsLeft = student.status === 'Abonado' ? 12 : 0;
-  const totalTrips = 20;
-  const progressValue = student.status === 'Abonado' ? (tripsLeft / totalTrips) * 100 : 0;
+  const avatar = PlaceHolderImages.find(img => img.id === user.avatar);
+  const isActive = user.status === 'Activo';
 
   return (
-    <div className="grid gap-6 max-w-2xl mx-auto">
-      {/* TARJETA DE IDENTIFICACIÓN */}
-      <Card className="overflow-hidden border-primary/20 shadow-md">
-        <div className="h-24 bg-gradient-to-r from-primary to-blue-600 relative">
-            <div className="absolute -bottom-10 left-6 p-1 bg-background rounded-full">
-                <Avatar className="h-20 w-20 border-2 border-background">
-                    <AvatarImage src={avatar?.imageUrl} />
-                    <AvatarFallback className="text-xl bg-primary/10 text-primary">{student.name.charAt(0)}</AvatarFallback>
+    <div className="max-w-md mx-auto space-y-6 mt-4 px-4">
+      
+      {/* CREDECIAL DIGITAL ESTILO CARNET */}
+      <Card className="overflow-hidden border-0 shadow-2xl relative bg-white">
+        {/* Encabezado Institucional */}
+        <div className="bg-[#1A237E] p-4 text-center">
+            <h3 className="text-white font-bold tracking-widest text-sm uppercase">Escuela Militar de Ingeniería</h3>
+            <p className="text-blue-200 text-xs">Credencial Universitario Digital</p>
+        </div>
+
+        <CardContent className="pt-8 pb-8 flex flex-col items-center text-center relative">
+            {/* Foto de Perfil con Borde de Estado */}
+            <div className={`p-1 rounded-full border-4 ${isActive ? 'border-green-500' : 'border-red-500'} mb-4`}>
+                <Avatar className="w-32 h-32">
+                    <AvatarImage src={avatar?.imageUrl} className="object-cover" />
+                    <AvatarFallback className="text-4xl bg-slate-100">{user.name.charAt(0)}</AvatarFallback>
                 </Avatar>
             </div>
-        </div>
-        <CardHeader className="pt-12 pb-2">
-          <div className="flex justify-between items-start">
-             <div>
-                <CardTitle className="text-2xl font-bold">{student.name}</CardTitle>
-                <CardDescription className="text-base font-mono mt-1">{student.ci}</CardDescription>
-             </div>
-             <Badge 
-                className="text-sm px-3 py-1" 
-                variant={student.status === 'Abonado' ? 'default' : 'secondary'}
-             >
-                {student.status}
-             </Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="grid gap-4">
-            <div className="grid grid-cols-2 gap-4 text-sm mt-2">
-                <div>
-                    <p className="text-muted-foreground">Teléfono</p>
-                    <p className="font-medium">{student.phone}</p>
-                </div>
-                <div>
-                    <p className="text-muted-foreground">Carrera</p>
-                    <p className="font-medium">Ingeniería de Sistemas</p> 
-                    {/* Dato estático por ahora, se podría añadir a la tabla Users */}
-                </div>
-            </div>
+            
+            {/* Datos Principales */}
+            <h2 className="text-2xl font-bold text-slate-900 mb-1">{user.name}</h2>
+            
+            {/* Badge de Estado (Semaforo visual para el chofer) */}
+            <Badge 
+                variant={isActive ? "default" : "destructive"} 
+                className={`mb-4 px-4 py-1 text-base ${isActive ? 'bg-green-600 hover:bg-green-700' : ''}`}
+            >
+                {isActive ? (
+                    <span className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4"/> HABILITADO</span>
+                ) : (
+                    <span className="flex items-center gap-2"><AlertCircle className="w-4 h-4"/> INHABILITADO</span>
+                )}
+            </Badge>
 
-            <div className="flex gap-3 mt-4">
-                <Button className="flex-1 gap-2" disabled={student.status !== 'Abonado'}>
-                    <QrCode className="h-4 w-4"/>
-                    {student.status === 'Abonado' ? 'Ver Código QR' : 'Sin Abono Activo'}
-                </Button>
-                <Button variant="outline" size="icon" onClick={loadProfile} title="Actualizar datos">
-                    <RefreshCw className="h-4 w-4"/>
-                </Button>
-                <Button variant="destructive" size="icon" onClick={handleLogout} title="Cerrar Sesión">
-                    <LogOut className="h-4 w-4"/>
-                </Button>
+            <div className="w-full border-t border-slate-100 my-4"></div>
+
+            {/* Grilla de Detalles */}
+            <div className="grid grid-cols-2 gap-y-6 gap-x-4 w-full text-left px-4">
+                <div>
+                    <p className="text-xs text-slate-400 uppercase font-semibold flex items-center gap-1 mb-1">
+                        <IdCard className="w-3 h-3"/> Cédula
+                    </p>
+                    <p className="text-sm font-mono font-medium text-slate-700">{user.ci}</p>
+                </div>
+                <div>
+                    <p className="text-xs text-slate-400 uppercase font-semibold flex items-center gap-1 mb-1">
+                        <School className="w-3 h-3"/> Carrera
+                    </p>
+                    <p className="text-sm font-medium text-slate-700">Ing. Sistemas</p>
+                </div>
+                 <div>
+                    <p className="text-xs text-slate-400 uppercase font-semibold mb-1">
+                        Celular
+                    </p>
+                    <p className="text-sm font-medium text-slate-700">{user.phone}</p>
+                </div>
+                 <div>
+                    <p className="text-xs text-slate-400 uppercase font-semibold mb-1">
+                        Vencimiento
+                    </p>
+                    <p className="text-sm font-medium text-slate-700">Dic 2025</p>
+                </div>
             </div>
         </CardContent>
+        
+        {/* Pie de Credencial Decorativo */}
+        <div className="h-4 bg-gradient-to-r from-blue-600 via-[#1A237E] to-blue-800"></div>
       </Card>
-      
-      {/* ESTADO DEL ABONO */}
-      <Card>
-        <CardHeader>
-            <CardTitle>Estado de tu Abono</CardTitle>
-            <CardDescription>
-                {student.status === 'Abonado' 
-                    ? 'Tienes viajes disponibles para este mes.' 
-                    : 'No tienes un abono activo actualmente.'}
-            </CardDescription>
-        </CardHeader>
-        <CardContent>
-            {student.status === 'Abonado' ? (
-                <div className="space-y-4">
-                    <div className="flex justify-between text-sm mb-2">
-                        <span>Viajes restantes</span>
-                        <span className="font-bold">{tripsLeft} / {totalTrips}</span>
-                    </div>
-                    <Progress value={progressValue} className="h-3" />
-                    <p className="text-xs text-muted-foreground pt-2">
-                        Tu abono es válido hasta el 30 de Noviembre.
-                    </p>
-                </div>
-            ) : (
-                <div className="text-center py-4 bg-secondary/20 rounded-lg border border-dashed">
-                    <p className="text-muted-foreground mb-2">Acércate a caja para renovar tu suscripción.</p>
-                    <Button variant="link" className="text-primary h-auto p-0">Ver puntos de pago</Button>
-                </div>
-            )}
-        </CardContent>
-      </Card>
+
+      <div className="text-center">
+        <p className="text-xs text-muted-foreground mb-4">
+            Muestra esta pantalla al conductor al subir al vehículo.
+        </p>
+        <Button variant="outline" className="w-full border-red-100 text-red-600 hover:bg-red-50" onClick={() => router.push('/')}>
+            <LogOut className="w-4 h-4 mr-2" /> Cerrar Sesión
+        </Button>
+      </div>
     </div>
   );
 }
