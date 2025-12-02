@@ -43,7 +43,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { User } from '@/types';
+import { User, AuditLog } from '@/types'; 
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -88,14 +88,13 @@ import {
   updateUser, 
   deleteUser, 
   getUserAuditLogs, 
-  resetUserPassword,
-  AuditLog 
+  resetUserPassword
 } from '@/lib/actions';
 
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
-// --- Constantes y Esquemas ---
+// --- Constantes ---
 
 const EXTENSIONES = ["LP", "SC", "CB", "OR", "PT", "TJ", "CH", "BE", "PD"];
 
@@ -109,8 +108,8 @@ const formSchema = z.object({
   phone: z.string().min(8, "Celular requerido"),
 });
 
-// --- Componente: Panel Lateral de Detalle (Historial) ---
-// --- Componente: Panel Lateral de Detalle (Historial) Actualizado ---
+// --- Componentes Auxiliares ---
+
 function UserDetailSheet({ 
   user, 
   isOpen, 
@@ -135,7 +134,7 @@ function UserDetailSheet({
   if (!user) return null;
 
   const avatar = PlaceHolderImages.find((img) => img.id === user.avatar);
-  const isActivo = user.status === 'Abonado';
+  const isActivo = user.status === 'Activo';
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
@@ -145,24 +144,18 @@ function UserDetailSheet({
           <SheetDescription>Detalles completos e historial de actividad.</SheetDescription>
         </SheetHeader>
 
-        {/* CABECERA */}
         <div className="flex flex-col items-center mb-8">
           <Avatar className="h-24 w-24 mb-4 border-4 border-muted">
             <AvatarImage src={avatar?.imageUrl} />
-            <AvatarFallback className="text-2xl">{user.name.charAt(0)}</AvatarFallback>
+            <AvatarFallback className="text-2xl">{user.name?.charAt(0) || 'U'}</AvatarFallback>
           </Avatar>
           <h2 className="text-2xl font-bold text-center">{user.name}</h2>
           
-          {/* Badge traducido visualmente: BD dice "Abonado", aquí mostramos "Activo" */}
-          <Badge 
-            className="mt-2" 
-            variant={isActivo ? 'default' : 'secondary'}
-          >
+          <Badge className="mt-2" variant={isActivo ? 'default' : 'secondary'}>
             {isActivo ? 'Activo' : 'Desactivado'}
           </Badge>
         </div>
 
-        {/* DATOS PERSONALES (Con Código SAGA) */}
         <div className="space-y-4 mb-8">
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
             <UserIcon className="w-4 h-4" /> Datos Personales
@@ -172,20 +165,14 @@ function UserDetailSheet({
               <p className="text-xs text-muted-foreground">Cédula de Identidad</p>
               <p className="font-medium font-mono">{user.ci}</p>
             </div>
-            
-            {/* ID Sistema eliminado, reemplazado por Código SAGA */}
             <div>
               <p className="text-xs text-muted-foreground">Código SAGA</p>
-              <p className="font-medium font-mono text-primary">
-                {user.codigo_SAGA || "No registrado"}
-              </p>
+              <p className="font-medium font-mono text-primary">{user.codigo_SAGA || "No registrado"}</p>
             </div>
-
             <div>
               <p className="text-xs text-muted-foreground">Teléfono</p>
               <p className="font-medium">{user.phone}</p>
             </div>
-            
             <div>
               <p className="text-xs text-muted-foreground">Rol</p>
               <p className="font-medium">Estudiante</p>
@@ -193,7 +180,6 @@ function UserDetailSheet({
           </div>
         </div>
 
-        {/* HISTORIAL (Con traducción de textos) */}
         <div className="space-y-4">
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
             <History className="w-4 h-4" /> Historial de Cambios
@@ -211,7 +197,6 @@ function UserDetailSheet({
                     <div className="absolute -left-[5px] top-1 h-2.5 w-2.5 rounded-full bg-primary ring-4 ring-background" />
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center justify-between">
-                        {/* Reemplazamos guiones bajos: CAMBIO_ESTADO -> CAMBIO ESTADO */}
                         <span className="text-xs font-bold text-primary">
                             {log.action.replace('_', ' ')}
                         </span>
@@ -219,15 +204,9 @@ function UserDetailSheet({
                           {new Date(log.timestamp).toLocaleString()}
                         </span>
                       </div>
-                      
-                      {/* Traducción visual del contenido del log */}
                       <p className="text-sm">
-                        {log.details
-                            .replace(/No Abonado/g, "Desactivado")
-                            .replace(/Abonado/g, "Activo")
-                        }
+                        {log.details.replace(/Inactivo/g, "Desactivado").replace(/Activo/g, "Activo")}
                       </p>
-                      
                       <p className="text-[10px] text-muted-foreground">Por: {log.adminName}</p>
                     </div>
                   </div>
@@ -242,7 +221,6 @@ function UserDetailSheet({
   );
 }
 
-// --- Componente: Diálogo Reset Password ---
 function ResetPasswordDialog({ user, isOpen, onClose }: { user: User, isOpen: boolean, onClose: () => void }) {
     const [newPass, setNewPass] = React.useState("");
     
@@ -285,7 +263,6 @@ function ResetPasswordDialog({ user, isOpen, onClose }: { user: User, isOpen: bo
     );
 }
 
-// --- Formulario Añadir ---
 function AddUserForm({ setOpen, setUsers }: { setOpen: (open: boolean) => void, setUsers: React.Dispatch<React.SetStateAction<User[]>> }) {
   const { toast } = useToast()
   const form = useForm<z.infer<typeof formSchema>>({
@@ -300,24 +277,20 @@ function AddUserForm({ setOpen, setUsers }: { setOpen: (open: boolean) => void, 
       
       if (newUser) {
         setUsers((prev) => [newUser, ...prev]);
-        
-        // 2. REEMPLAZAR ALERT POR TOAST DE ÉXITO
         toast({
           title: "¡Usuario creado!",
           description: `${newUser.name} ha sido registrado exitosamente.`,
-          variant: "default", // Azul/Negro por defecto
+          variant: "default", 
         });
-
         setOpen(false);
         form.reset();
       }
     } catch (error: any) {
       console.error(error);
-      // 3. REEMPLAZAR ALERT POR TOAST DE ERROR
       toast({
         title: "Error al crear",
         description: error.message || 'Hubo un problema al guardar los datos.',
-        variant: "destructive", // Rojo para errores
+        variant: "destructive", 
       });
     }
   }
@@ -345,7 +318,6 @@ function AddUserForm({ setOpen, setUsers }: { setOpen: (open: boolean) => void, 
                 )}
             />
         </div>
-
 
         <div className="grid grid-cols-3 gap-4">
             <FormField control={form.control} name="ci_numero" render={({ field }) => (
@@ -386,44 +358,48 @@ function AddUserForm({ setOpen, setUsers }: { setOpen: (open: boolean) => void, 
   );
 }
 
-// --- Formulario Editar ---
-// --- Formulario Editar (Actualizado para Admin) ---
 function EditUserForm({ user, setOpen, setUsers }: { user: User, setOpen: (open: boolean) => void, setUsers: React.Dispatch<React.SetStateAction<User[]>> }) {
-  
   const { toast } = useToast();
+  
   const editSchema = z.object({
       name: z.string().min(3, "Nombre requerido"),
       phone: z.string().min(8, "Celular requerido"),
-      ci: z.string().min(5, "CI requerido"), // Ahora es editable
-      codigo_SAGA: z.string().min(2, "SAGA requerido"), // Ahora es editable
+      ci: z.string().min(5, "CI requerido"),
+      codigo_SAGA: z.string().optional(),
   });
 
   const form = useForm<z.infer<typeof editSchema>>({
     resolver: zodResolver(editSchema),
     defaultValues: { 
-        name: user.name, 
-        phone: user.phone,
-        ci: user.ci, // Carga el CI actual
-        codigo_SAGA: user.codigo_SAGA || "" // Carga el SAGA actual
+        // PROTECCIÓN CONTRA VALORES NULOS
+        name: user.name || "", 
+        phone: user.phone || "",
+        ci: user.ci || "",
+        codigo_SAGA: user.codigo_SAGA || ""
     },
   });
 
   async function onSubmit(values: z.infer<typeof editSchema>) {
     try {
-      const updatedUser = await updateUser({ ...user, ...values });
+      // Convertimos valores undefined o null a string vacío
+      const safeValues = {
+        ...values,
+        codigo_SAGA: values.codigo_SAGA || ""
+      };
+
+      const updatedUser = await updateUser({ ...user, ...safeValues });
+      
       if (updatedUser) {
         setUsers((prev) => prev.map(u => u.id === user.id ? updatedUser : u));
-        
-        // 2. TOAST DE ÉXITO
         toast({
           title: "Datos actualizados",
           description: `La información de ${updatedUser.name} se guardó correctamente.`,
         });
-        
         setOpen(false);
+      } else {
+        toast({ variant: "destructive", title: "Error", description: "No se pudo guardar." });
       }
     } catch (error: any) {
-      // 3. TOAST DE ERROR
       toast({
         title: "Error de actualización",
         description: "No se pudieron guardar los cambios. Intenta nuevamente.",
@@ -441,23 +417,20 @@ function EditUserForm({ user, setOpen, setUsers }: { user: User, setOpen: (open:
         </DialogHeader>
         
         <div className="grid gap-4 py-4">
-           {/* Nombre y Celular */}
            <FormField control={form.control} name="name" render={({ field }) => (
-            <FormItem><FormLabel>Nombre Completo</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+            <FormItem><FormLabel>Nombre Completo</FormLabel><FormControl><Input {...field} value={field.value || ""} /></FormControl><FormMessage /></FormItem>
           )} />
            
            <FormField control={form.control} name="phone" render={({ field }) => (
-            <FormItem><FormLabel>Celular</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+            <FormItem><FormLabel>Celular</FormLabel><FormControl><Input {...field} value={field.value || ""} /></FormControl><FormMessage /></FormItem>
            )} />
            
-           {/* CI y SAGA ahora son editables */}
            <div className="grid grid-cols-2 gap-4 mt-2">
                <FormField control={form.control} name="ci" render={({ field }) => (
                 <FormItem>
                     <FormLabel>Cédula de Identidad</FormLabel>
                     <FormControl>
-                        {/* Quitamos 'disabled' y 'bg-muted' */}
-                        <Input {...field} placeholder="Ej: 1234567 LP" /> 
+                        <Input {...field} value={field.value || ""} placeholder="Ej: 1234567 LP" /> 
                     </FormControl>
                     <FormMessage />
                 </FormItem>
@@ -467,7 +440,7 @@ function EditUserForm({ user, setOpen, setUsers }: { user: User, setOpen: (open:
                 <FormItem>
                     <FormLabel>Código SAGA</FormLabel>
                     <FormControl>
-                        <Input {...field} placeholder="Ej: A24500-X" />
+                        <Input {...field} value={field.value || ""} placeholder="Ej: A24500-X" />
                     </FormControl>
                     <FormMessage />
                 </FormItem>
@@ -483,7 +456,6 @@ function EditUserForm({ user, setOpen, setUsers }: { user: User, setOpen: (open:
   );
 }
 
-// --- Celda de Acciones ---
 const UserActionsCell = ({ 
   user, 
   setUsers, 
@@ -497,7 +469,7 @@ const UserActionsCell = ({
    const [isPassOpen, setIsPassOpen] = React.useState(false);
    
    const handleToggleStatus = async () => {
-      const newStatus = user.status === 'Abonado' ? 'No Abonado' : 'Abonado';
+      const newStatus = user.status === 'Activo' ? 'Inactivo' : 'Activo';
       const updated = await updateUser({ ...user, status: newStatus });
       if (updated) setUsers(prev => prev.map(u => u.id === user.id ? updated : u));
    };
@@ -511,7 +483,7 @@ const UserActionsCell = ({
 
    return (
      <div className="flex items-center gap-2">
-        <Switch checked={user.status === 'Abonado'} onCheckedChange={handleToggleStatus} />
+        <Switch checked={user.status === 'Activo'} onCheckedChange={handleToggleStatus} />
         
         <DropdownMenu>
           <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
@@ -542,8 +514,6 @@ const UserActionsCell = ({
    )
 }
 
-// --- Definición de Columnas ---
-// --- Definición de Columnas Corregida ---
 const getColumns = (
   setUsers: React.Dispatch<React.SetStateAction<User[]>>,
   onViewDetail: (user: User) => void
@@ -568,28 +538,25 @@ const getColumns = (
     enableHiding: false,
   },
   {
-    // CORRECCIÓN: Antes esto decía 'status', debe ser 'name'
     accessorKey: 'name', 
     header: 'Usuario',
-
-    // --- REEMPLAZA LA LÍNEA ANTERIOR POR ESTO ---
     filterFn: (row, columnId, filterValue) => {
        const cellValue = row.getValue(columnId);
-       // Convertimos a string y minúsculas para comparar de forma segura
        return String(cellValue ?? "").toLowerCase().includes(String(filterValue).toLowerCase());
     },
-    // --------------------------------------------
     cell: ({ row }) => {
       const user = row.original;
       const avatar = PlaceHolderImages.find((img) => img.id === user.avatar);
+      const displayName = user.name ? String(user.name) : "Usuario"; 
+
       return (
         <div className="flex items-center gap-3">
           <Avatar className="h-9 w-9 border">
             <AvatarImage src={avatar?.imageUrl} alt="Avatar" />
-            <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+            <AvatarFallback>{displayName.charAt(0)}</AvatarFallback>
           </Avatar>
           <div className="grid gap-0.5">
-            <div className="font-medium">{user.name}</div>
+            <div className="font-medium">{displayName}</div>
             <div className="text-xs text-muted-foreground">{user.ci}</div>
           </div>
         </div>
@@ -597,17 +564,12 @@ const getColumns = (
     },
   },
   {
-    // Esta es la ÚNICA columna de status
     accessorKey: 'status',
     header: 'Estado',
-    // Agregamos esto para asegurar que el filtrado sea exacto
     filterFn: 'equalsString', 
     cell: ({ row }) => {
-      // Obtenemos el valor REAL de la base de datos ('Abonado' o 'No Abonado')
       const rawStatus = row.getValue('status') as string;
-      
-      // Lógica visual: Si es 'Abonado', mostramos 'Activo'
-      const isActive = rawStatus === 'Abonado';
+      const isActive = rawStatus === 'Activo';
       const displayLabel = isActive ? 'Activo' : 'Desactivado'; 
 
       return (
@@ -692,18 +654,15 @@ export default function UsersPage() {
      }
   }, [statusFilter, table]);
 
-  // --- Función para Exportar a Excel con Estilo Profesional ---
   const handleExport = async () => {
     if (users.length === 0) {
       alert("No hay datos para exportar.");
       return;
     }
 
-    // 1. Crear el libro de trabajo y la hoja
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Reporte de Usuarios');
 
-    // 2. Definir columnas y anchos visuales
     worksheet.columns = [
       { header: 'ID', key: 'id', width: 10 },
       { header: 'Nombre Completo', key: 'name', width: 35 },
@@ -713,29 +672,24 @@ export default function UsersPage() {
       { header: 'Código SAGA', key: 'saga', width: 15 },
     ];
 
-    // 3. Insertar datos (Mapeando para que coincida con lo que ves en pantalla)
     users.forEach((user) => {
       worksheet.addRow({
         id: user.id,
         name: user.name,
         ci: user.ci,
         phone: user.phone,
-        // Traducimos: Si en BD es 'Abonado' -> Excel dice 'Activo'
-        status: user.status === 'Abonado' ? 'Activo' : 'Desactivado',
+        status: user.status === 'Activo' ? 'Activo' : 'Desactivado',
         saga: user.codigo_SAGA || "S/N",
       });
     });
 
-    // 4. ESTILIZAR EL EXCEL 🎨
-    
-    // A) Estilo de la Cabecera (Fila 1)
     const headerRow = worksheet.getRow(1);
     headerRow.eachCell((cell) => {
       cell.font = { bold: true, color: { argb: 'FFFFFF' }, size: 12 };
       cell.fill = {
         type: 'pattern',
         pattern: 'solid',
-        fgColor: { argb: '1E293B' }, // Azul oscuro (Slate-900)
+        fgColor: { argb: '1E293B' },
       };
       cell.alignment = { vertical: 'middle', horizontal: 'center' };
       cell.border = {
@@ -746,32 +700,27 @@ export default function UsersPage() {
       };
     });
 
-    // B) Estilo de las Filas de Datos
     worksheet.eachRow((row, rowNumber) => {
-      if (rowNumber > 1) { // Saltamos la cabecera
+      if (rowNumber > 1) { 
         row.eachCell((cell) => {
-          // Bordes para todas las celdas
           cell.border = {
             top: { style: 'thin' },
             left: { style: 'thin' },
             bottom: { style: 'thin' },
             right: { style: 'thin' },
           };
-          // Alineación vertical centrada
           cell.alignment = { vertical: 'middle', horizontal: 'left' };
         });
 
-        // C) Colorear texto de Estado (Verde para Activo, Rojo para Desactivado)
         const statusCell = row.getCell('status');
         if (statusCell.value === 'Activo') {
-          statusCell.font = { color: { argb: '166534' }, bold: true }; // Verde oscuro
+          statusCell.font = { color: { argb: '166534' }, bold: true };
         } else {
-          statusCell.font = { color: { argb: '991B1B' }, bold: true }; // Rojo oscuro
+          statusCell.font = { color: { argb: '991B1B' }, bold: true };
         }
       }
     });
 
-    // 5. Generar archivo y descargar
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -799,14 +748,13 @@ export default function UsersPage() {
               </SelectTrigger>
               <SelectContent>
                  <SelectItem value="all">Todos</SelectItem>
-                 <SelectItem value="Abonado">Activos</SelectItem>
-                 <SelectItem value="No Abonado">Desactivados</SelectItem>
+                 <SelectItem value="Activo">Activos</SelectItem>
+                 <SelectItem value="Inactivo">Desactivados</SelectItem>
               </SelectContent>
            </Select>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* AGREGAR onClick={handleExport} AQUÍ 👇 */}
           <Button variant="outline" className="gap-2" onClick={handleExport}>
               <File className="h-4 w-4" /> Exportar
           </Button>

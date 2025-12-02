@@ -9,6 +9,7 @@ import {
   Trip,
   DashboardStats,
   AuditLog,
+  CreateUserInput,
 } from "@/types";
 import sql from "mssql";
 import { createSession, deleteSession, getSession } from "@/lib/session";
@@ -24,17 +25,6 @@ import {
 import { revalidatePath, unstable_noStore } from "next/cache";
 
 // --- TIPOS AUXILIARES ---
-type CreateUserInput = {
-  nombres: string;
-  paterno: string;
-  materno: string;
-  ci_numero: string;
-  ci_extension: string;
-  phone: string;
-  email?: string;
-  password?: string;
-  assignedRouteId?: string;
-};
 
 // --- AUTENTICACIÓN (CORREGIDA) ---
 
@@ -197,9 +187,13 @@ export async function getUsers(): Promise<User[]> {
   await requireAdmin();
   try {
     const pool = await getDbPool();
-    const result = await pool
-      .request()
-      .query("SELECT * FROM Users ORDER BY id DESC");
+    // TRUCO SQL: Concatenamos nombres y paterno para formar la columna 'name' que espera el frontend
+    const result = await pool.request().query(`
+      SELECT *, 
+      (ISNULL(nombres, '') + ' ' + ISNULL(paterno, '') + ' ' + ISNULL(materno, '')) as name 
+      FROM Users 
+      ORDER BY id DESC
+    `);
     return result.recordset as User[];
   } catch (error) {
     console.error("Error al obtener usuarios:", error);
@@ -220,78 +214,87 @@ export async function getUserProfile(userId: number): Promise<User | null> {
     return null;
   }
 }
+
+// En src/lib/actions.ts
+
+// --- EN src/lib/actions.ts ---
+
+// 1. FUNCIÓN CREAR USUARIO CORREGIDA
 export async function createUser(data: CreateUserInput): Promise<User | null> {
   await requireAdmin();
   try {
     const pool = await getDbPool();
-    // Ajuste: usar 'ci' en lugar de 'ci_numero' para unicidad en nueva estructura
     const fullCi = `${data.ci_numero} ${data.ci_extension}`.trim();
 
+    // 1. Verificar duplicados (Sin tipos explícitos para evitar error)
     const check = await pool
       .request()
-      .input("ci", sql.NVarChar, fullCi)
+      .input("ci", fullCi)
       .query("SELECT id FROM Users WHERE ci = @ci");
+      
     if (check.recordset.length > 0)
       throw new Error(`El CI ${fullCi} ya existe.`);
 
+    // 2. Insertar (Sin tipos explícitos sql.NVarChar)
     const result = await pool
       .request()
-      .input("nombres", sql.NVarChar, data.nombres)
-      .input("paterno", sql.NVarChar, data.paterno)
-      .input("materno", sql.NVarChar, data.materno)
-      .input("ci_extension", sql.NVarChar, data.ci_extension)
-      .input("phone", sql.NVarChar, data.phone)
-      .input("ci", sql.NVarChar, fullCi)
+      .input("nombres", data.nombres)
+      .input("paterno", data.paterno)
+      .input("materno", data.materno || "")
+      .input("ci_extension", data.ci_extension)
+      .input("phone", data.phone)
+      .input("ci", fullCi)
+      .input("saga", data.codigo_SAGA || "") 
       .query(
-        `INSERT INTO Users (nombres, paterno, materno, ci_extension, phone, ci, status, avatar, password) OUTPUT INSERTED.* VALUES (@nombres, @paterno, @materno, @ci_extension, @phone, @ci, 'No Abonado', 'user-placeholder', '123456')`
+        `INSERT INTO Users (nombres, paterno, materno, ci_extension, phone, ci, codigo_SAGA, status, avatar, password) 
+         OUTPUT INSERTED.* VALUES (@nombres, @paterno, @materno, @ci_extension, @phone, @ci, @saga, 'Inactivo', 'user-placeholder', '123456')`
       );
 
-    const newUser = result.recordset[0] as User;
-    await logAudit(
-      "Admin",
-      newUser.id,
-      "CREAR",
-      `Usuario creado: ${newUser.nombres}`
-    );
+    const rawUser = result.recordset[0];
+    // Construir nombre completo para el frontend
+    const fullName = [rawUser.nombres, rawUser.paterno, rawUser.materno].filter(Boolean).join(" ");
+
+    const newUser: User = {
+        ...rawUser,
+        name: fullName || "Usuario Nuevo"
+    };
+
+    await logAudit("Admin", newUser.id, "CREAR", `Usuario creado: ${newUser.name}`);
     return newUser;
   } catch (error: any) {
-    throw new Error(error.message || "Error en base de datos");
+    console.error("Error createUser:", error);
+    throw new Error(error.message || "Error al crear usuario");
   }
 }
 
 export async function updateUser(user: User): Promise<User | null> {
+  await requireAdmin();
   try {
     const pool = await getDbPool();
-    const prev = await pool
-      .request()
-      .input("pid", sql.Int, user.id)
-      .query("SELECT status FROM Users WHERE id=@pid");
-    const prevStatus = prev.recordset[0]?.status;
-
+    
+    // Actualizar todos los campos, asegurando que no sean undefined
     const result = await pool
       .request()
-      .input("id", sql.Int, user.id)
-      // Ojo: en la nueva BD es 'nombres' y 'paterno', no 'name'. Ajusta si el frontend envía 'name'
-      .input("phone", sql.NVarChar, user.phone)
-      .input("status", sql.NVarChar, user.status)
+      .input("id", user.id)
+      .input("name", user.name || "") 
+      .input("phone", user.phone || "")
+      .input("status", user.status)
+      .input("ci", user.ci)
+      .input("saga", user.codigo_SAGA || "")
       .query(
-        `UPDATE Users SET phone=@phone, status=@status OUTPUT INSERTED.* WHERE id=@id`
+        `UPDATE Users 
+         SET name=@name, phone=@phone, status=@status, ci=@ci, codigo_SAGA=@saga
+         OUTPUT INSERTED.* WHERE id=@id`
       );
 
     if (result.recordset.length > 0) {
       const updatedUser = result.recordset[0] as User;
-      if (prevStatus !== updatedUser.status)
-        await logAudit(
-          "Admin",
-          user.id,
-          "CAMBIO_ESTADO",
-          `De ${prevStatus} a ${updatedUser.status}`
-        );
-      else await logAudit("Admin", user.id, "EDITAR", `Datos actualizados`);
+      await logAudit("Admin", user.id, "EDITAR", `Usuario actualizado`);
       return updatedUser;
     }
     return null;
   } catch (error) {
+    console.error("Error updateUser:", error);
     return null;
   }
 }
@@ -589,24 +592,29 @@ export async function createRoute(data: any) {
 
     await pool
       .request()
-      .input("name", sql.NVarChar, data.name)
-      .input("cat", sql.NVarChar, data.Categoria || "Regular")
-      .input("status", sql.NVarChar, data.status)
-      .input("schedule", sql.NVarChar, data.schedule)
-      .input("stops", sql.Int, data.stops)
-      .input("waypoints", sql.NVarChar, waypointsJson).query(`
+      // CORRECCIÓN IMPORTANTE: Quitamos sql.NVarChar y sql.Int
+      .input("name", data.name)
+      .input("cat", data.Categoria || "Regular")
+      .input("status", data.status)
+      .input("schedule", data.schedule)
+      .input("stops", data.stops)
+      .input("waypoints", waypointsJson)
+      // NOTA: Si tu tabla se llama 'Operaciones.Rutas', cambia 'Routes' por 'Operaciones.Rutas'
+      // y verifica que las columnas (name, Categoria, etc.) existan en tu BD.
+      .query(`
         INSERT INTO Routes (name, Categoria, status, schedule, stops, waypoints) 
         VALUES (@name, @cat, @status, @schedule, @stops, @waypoints)
       `);
 
-    revalidatePath("/admin/routes"); // Actualizar lista de rutas
+    revalidatePath("/admin/routes");
     return true;
   } catch (e) {
-    console.error(e);
+    console.error("Error creating route:", e);
     throw e;
   }
 }
 
+// 2. Arreglo para Actualizar Rutas
 export async function updateRoute(rawData: unknown): Promise<Route | null> {
   await requireAdmin();
   try {
@@ -617,16 +625,17 @@ export async function updateRoute(rawData: unknown): Promise<Route | null> {
       ? JSON.stringify(data.waypoints)
       : "[]";
 
-    // CORREGIDO: Eliminados driverId y vehicleId
     const result = await pool
       .request()
-      .input("id", sql.Int, data.id)
-      .input("name", sql.NVarChar, data.name)
-      .input("cat", sql.NVarChar, data.Categoria)
-      .input("status", sql.NVarChar, data.status)
-      .input("schedule", sql.NVarChar, data.schedule)
-      .input("stops", sql.Int, data.stops)
-      .input("waypoints", sql.NVarChar, waypointsJson).query(`
+      // CORRECCIÓN: Quitamos los tipos explícitos aquí también
+      .input("id", data.id)
+      .input("name", data.name)
+      .input("cat", data.Categoria)
+      .input("status", data.status)
+      .input("schedule", data.schedule)
+      .input("stops", data.stops)
+      .input("waypoints", waypointsJson)
+      .query(`
         UPDATE Routes 
         SET name=@name, Categoria=@cat, status=@status, schedule=@schedule, stops=@stops, waypoints=@waypoints
         OUTPUT INSERTED.* WHERE id=@id
@@ -643,7 +652,7 @@ export async function updateRoute(rawData: unknown): Promise<Route | null> {
     }
     return null;
   } catch (error) {
-    console.error("Error actualizando ruta:", error);
+    console.error("Error updating route:", error);
     return null;
   }
 }
@@ -849,16 +858,18 @@ export async function reportLostItem(
 ): Promise<boolean> {
   try {
     const pool = await getDbPool();
+    // Ajuste para que coincida con tu tabla real Soporte.ObjetosPerdidos
     await pool
       .request()
       .input("uid", sql.Int, userId)
       .input("d", sql.NVarChar, description)
       .input("r", sql.NVarChar, route)
       .query(
-        "INSERT INTO LostAndFound (userId, description, route) VALUES (@uid, @d, @r)"
+        "INSERT INTO Soporte.ObjetosPerdidos (UserId, Descripcion, Ruta, FechaReporte, Estado) VALUES (@uid, @d, @r, GETDATE(), 'Pendiente')"
       );
     return true;
-  } catch {
+  } catch (error) {
+    console.error("Error reportLostItem:", error);
     return false;
   }
 }
@@ -906,27 +917,29 @@ export async function createStop(data: { name: string; lat: number; lng: number 
   try {
     const pool = await getDbPool();
     
-    // Usamos sql.Float para coincidir con la nueva tabla
+    // CORRECCIÓN: Eliminamos sql.NVarChar y sql.Float.
+    // Dejamos que la librería infiera los tipos.
     const result = await pool.request()
-      .input("name", sql.NVarChar, data.name)
-      .input("lat", sql.Float, data.lat) // <--- IMPORTANTE: sql.Float
-      .input("lng", sql.Float, data.lng) // <--- IMPORTANTE: sql.Float
-      .query("INSERT INTO Operaciones.Paradas (Nombre, Latitud, Longitud, EsPrincipal) OUTPUT INSERTED.Id as id, INSERTED.Nombre as name, INSERTED.Latitud as lat, INSERTED.Longitud as lng VALUES (@name, @lat, @lng, 1)");
+      .input("name", data.name)
+      .input("lat", data.lat)
+      .input("lng", data.lng)
+      .query(`
+        INSERT INTO Operaciones.Paradas (Nombre, Latitud, Longitud, EsPrincipal) 
+        OUTPUT INSERTED.Id as id, INSERTED.Nombre as name, INSERTED.Latitud as lat, INSERTED.Longitud as lng 
+        VALUES (@name, @lat, @lng, 1)
+      `);
     
-    // Actualizar caché
     revalidatePath('/admin/stops');
     revalidatePath('/admin/routes');
     
     if (result.recordset.length > 0) {
-        console.log("✅ Parada creada:", result.recordset[0]);
         return result.recordset[0];
     } else {
         console.error("❌ La base de datos no devolvió el registro insertado.");
         return null;
     }
   } catch (error) {
-    // Si falla, verás el error exacto en tu terminal de VS Code
-    console.error("❌ ERROR CRÍTICO AL CREAR PARADA:", error);
+    console.error("❌ ERROR AL CREAR PARADA:", error);
     return null;
   }
 }

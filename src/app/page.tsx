@@ -1,439 +1,166 @@
-"use client";
-import { useToast } from "@/hooks/use-toast";
-import * as React from "react";
-import { useRouter } from "next/navigation";
+import { PublicHeader } from "@/components/public-header";
+import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { authenticate, registerStudent } from "@/lib/actions";
-import { Logo } from "@/components/logo"; // Asegúrate de que este componente exista, o usa un ícono de lucide-react
-import { BusFront } from "lucide-react"; // Icono alternativo si no tienes Logo
+import Link from "next/link";
+import { MapPin, Clock, ShieldCheck, Phone, Mail, Map as MapIcon } from "lucide-react";
 
-// --- CONSTANTES ---
-const EXTENSIONES = ["LP", "SC", "CB", "OR", "PT", "TJ", "CH", "BE", "PD"];
-
-// --- ESQUEMAS ---
-const loginSchema = z.object({
-  ci: z.string().min(3, "Ingresa tu CI."),
-  password: z.string().min(1, "Ingresa tu contraseña."),
-});
-
-const registerSchema = z.object({
-  ci_numero: z.string().min(5, "CI requerido"),
-  ci_extension: z.string().min(2, "Extensión requerida"),
-  nombres: z.string().min(2, "Nombre requerido"),
-  paterno: z.string().min(2, "Ap. Paterno requerido"),
-  materno: z.string().optional(),
-  email: z.string().email("Correo inválido"),
-  phone: z.string().min(8, "Celular requerido"),
-  password: z.string().min(6, "Mínimo 6 caracteres"),
-  terms: z
-    .boolean()
-    .refine((val) => val === true, { message: "Acepta los términos" }),
-});
-
-export default function AuthPage() {
-  const router = useRouter();
-  const { toast } = useToast();
-  const [isLoading, setIsLoading] = React.useState(false);
-
-  // --- LOGIN ---
-  const loginForm = useForm<z.infer<typeof loginSchema>>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: { ci: "", password: "" },
-  });
-
-  // En src/app/page.tsx
-
-  async function onLogin(values: z.infer<typeof loginSchema>) {
-    setIsLoading(true);
-    try {
-      const result = await authenticate(values.ci, values.password);
-
-      if (result.success) {
-        // Redirección...
-        if (result.role === "admin") {
-          window.location.href = "/admin";
-        } else if (result.role === "driver") {
-          // Redirigimos a la ruta específica del conductor
-          window.location.href = "/driver/active-route";
-        } else {
-          // Redirigimos al perfil del estudiante
-          window.location.href = "/student/profile";
-        }
-      } else {
-        // REEMPLAZAR EL ALERT POR TOAST
-        toast({
-          title: "Acceso denegado",
-          description: result.message || "Credenciales incorrectas.",
-          variant: "destructive",
-        });
-      }
-    } catch (e) {
-      toast({
-        title: "Error de conexión",
-        description: "No se pudo contactar con el servidor.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  // --- REGISTRO (Solo Estudiantes) ---
-  const registerForm = useForm<z.infer<typeof registerSchema>>({
-    resolver: zodResolver(registerSchema),
-    defaultValues: {
-      ci_numero: "",
-      ci_extension: "LP",
-      nombres: "",
-      paterno: "",
-      materno: "",
-      email: "",
-      phone: "",
-      password: "",
-      terms: false,
-    },
-  });
-
-  async function onRegister(values: z.infer<typeof registerSchema>) {
-    setIsLoading(true);
-    try {
-      // @ts-ignore
-      const result = await registerStudent({
-        ...values,
-        materno: values.materno || "",
-      });
-      if (result.success) {
-        sessionStorage.setItem(
-          "loggedInUser",
-          JSON.stringify({ role: "student", ...result.user })
-        );
-        alert("¡Bienvenido! Registro exitoso.");
-        router.push("/student");
-      } else {
-        alert(result.message);
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
+export default function LandingPage() {
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-blue-600 to-indigo-900 p-4">
-      <div className="w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col lg:flex-row min-h-[600px]">
-        {/* --- LADO IZQUIERDO (Bienvenida / Decorativo) --- */}
-        <div className="hidden lg:flex flex-1 bg-blue-600 relative flex-col justify-center items-center text-white p-12 bg-[url('https://images.unsplash.com/photo-1570125909232-eb263c188f7e?q=80&w=2071&auto=format&fit=crop')] bg-cover bg-center">
-          <div className="absolute inset-0 bg-blue-900/70"></div>{" "}
-          {/* Overlay oscuro */}
-          <div className="relative z-10 flex flex-col items-center text-center">
-            <div className="bg-white/20 p-4 rounded-full backdrop-blur-md mb-6 shadow-lg">
-              {/* Si tienes el componente Logo úsalo, si no usa el icono BusFront */}
-              <BusFront className="w-16 h-16 text-white" />
-            </div>
-            <h1 className="text-5xl font-bold mb-4 tracking-tight">
-              T.U.E.M.I.
+    <div className="flex min-h-screen flex-col">
+      <PublicHeader />
+      
+      <main className="flex-1">
+        {/* --- SECCIÓN HERO (Principal) --- */}
+        <section id="inicio" className="relative bg-[#1A237E] text-white py-12 sm:py-16 md:py-20 lg:py-32 overflow-hidden">
+          {/* Fondo decorativo */}
+          <div className="absolute inset-0 opacity-10 bg-[url('https://images.unsplash.com/photo-1494515855673-102c96986359?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center" />
+          
+          <div className="container relative z-10 px-4 sm:px-6 md:px-8 flex flex-col items-center text-center">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tighter mb-4 sm:mb-6 max-w-3xl leading-tight">
+              Transporte Universitario Inteligente <span className="text-[#D1C4E9] block sm:inline mt-2 sm:mt-0">EMI</span>
             </h1>
-            <p className="text-lg text-blue-100 max-w-md leading-relaxed">
-              Sistema de Transporte Universitario Inteligente. <br />
-              Gestiona tus rutas, monitorea tu bus y viaja seguro.
+            <p className="text-base sm:text-lg md:text-xl text-blue-100 max-w-[90%] sm:max-w-[700px] mb-6 sm:mb-8 leading-relaxed px-2">
+              Seguridad, puntualidad y tecnología para tu día a día universitario. 
+              Monitorea tu bus en tiempo real y viaja tranquilo.
             </p>
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto px-4 sm:px-0">
+              <Button 
+                asChild 
+                size="lg" 
+                className="bg-white text-[#1A237E] hover:bg-blue-50 font-bold h-11 sm:h-12 text-sm sm:text-base w-full sm:w-auto"
+              >
+                <Link href="/login">Acceder a mi Cuenta</Link>
+              </Button>
+              <Button 
+                asChild 
+                variant="outline" 
+                size="lg" 
+                className="text-white border-white border-2 hover:bg-white/10 hover:text-white h-11 sm:h-12 text-sm sm:text-base w-full sm:w-auto"
+              >
+                <Link href="#rutas">Ver Rutas Públicas</Link>
+              </Button>
+            </div>
           </div>
-          <div className="relative z-10 mt-12 text-sm text-blue-200/60">
-            © {new Date().getFullYear()} Escuela Militar de Ingeniería
-          </div>
-        </div>
+        </section>
 
-        {/* --- LADO DERECHO (Formularios) --- */}
-        <div className="flex-1 p-8 sm:p-12 flex flex-col justify-center bg-white">
-          <div className="lg:hidden flex flex-col items-center mb-8">
-            <BusFront className="w-10 h-10 text-blue-600 mb-2" />
-            <h2 className="text-2xl font-bold text-gray-900">T.U.E.M.I.</h2>
-          </div>
-
-          <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-8">
-              <TabsTrigger value="login">Ingresar</TabsTrigger>
-              <TabsTrigger value="register">Crear Cuenta</TabsTrigger>
-            </TabsList>
-
-            {/* --- FORMULARIO LOGIN --- */}
-            <TabsContent value="login">
-              <div className="mb-6">
-                <h2 className="text-3xl font-bold text-gray-900">Bienvenido</h2>
-                <p className="text-gray-500 mt-2">
-                  Ingresa tus credenciales para acceder.
+        {/* --- SECCIÓN INFORMACIÓN / CARACTERÍSTICAS --- */}
+        <section id="info" className="py-12 sm:py-16 md:py-20 bg-slate-50">
+          <div className="container px-4 sm:px-6 md:px-8">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-8 sm:mb-12 text-[#1A237E]">
+              ¿Por qué elegir T.U.E.M.I.?
+            </h2>
+            <div className="grid gap-6 sm:gap-8 md:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
+              
+              <div className="bg-white p-5 sm:p-6 md:p-8 rounded-xl shadow-sm border hover:shadow-md transition-shadow flex flex-col items-center text-center">
+                <div className="p-3 sm:p-4 bg-blue-100 rounded-full mb-4 text-[#1A237E]">
+                  <Clock className="w-7 h-7 sm:w-8 sm:h-8" />
+                </div>
+                <h3 className="text-lg sm:text-xl font-bold mb-2">Horarios Exactos</h3>
+                <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
+                  Conoce la hora estimada de llegada de cada unidad para no perder tu clase.
                 </p>
               </div>
 
-              <Form {...loginForm}>
-                <form
-                  onSubmit={loginForm.handleSubmit(onLogin)}
-                  className="space-y-5"
-                >
-                  <FormField
-                    control={loginForm.control}
-                    name="ci"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Carnet de Identidad</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="Ej: 1234567"
-                            className="h-12 bg-gray-50"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={loginForm.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <div className="flex justify-between items-center">
-                          <FormLabel>Contraseña</FormLabel>
-                          <a
-                            href="#"
-                            className="text-xs text-blue-600 hover:underline"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              alert("Contacta a soporte.");
-                            }}
-                          >
-                            ¿Olvidaste tu contraseña?
-                          </a>
-                        </div>
-                        <FormControl>
-                          <Input
-                            type="password"
-                            placeholder="••••••••"
-                            className="h-12 bg-gray-50"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <Button
-                    type="submit"
-                    className="w-full h-12 text-lg bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? "Verificando..." : "Iniciar Sesión"}
-                  </Button>
-                </form>
-              </Form>
-            </TabsContent>
-
-            {/* --- FORMULARIO REGISTRO --- */}
-            <TabsContent value="register">
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">
-                  Registro Estudiantil
-                </h2>
-                <p className="text-gray-500 text-sm mt-1">
-                  Solo para estudiantes vigentes en lista oficial.
+              <div className="bg-white p-5 sm:p-6 md:p-8 rounded-xl shadow-sm border hover:shadow-md transition-shadow flex flex-col items-center text-center">
+                <div className="p-3 sm:p-4 bg-blue-100 rounded-full mb-4 text-[#1A237E]">
+                  <MapIcon className="w-7 h-7 sm:w-8 sm:h-8" />
+                </div>
+                <h3 className="text-lg sm:text-xl font-bold mb-2">Monitoreo GPS</h3>
+                <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
+                  Rastreo satelital en vivo para que sepas exactamente dónde está tu transporte.
                 </p>
               </div>
 
-              <Form {...registerForm}>
-                <form
-                  onSubmit={registerForm.handleSubmit(onRegister)}
-                  className="space-y-3"
-                >
-                  <div className="grid grid-cols-3 gap-2">
-                    <FormField
-                      control={registerForm.control}
-                      name="ci_numero"
-                      render={({ field }) => (
-                        <FormItem className="col-span-2">
-                          <FormLabel>CI</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              placeholder="1234567"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={registerForm.control}
-                      name="ci_extension"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Ext</FormLabel>
-                          <Select
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {EXTENSIONES.map((e) => (
-                                <SelectItem key={e} value={e}>
-                                  {e}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+              <div className="bg-white p-5 sm:p-6 md:p-8 rounded-xl shadow-sm border hover:shadow-md transition-shadow flex flex-col items-center text-center md:col-span-2 lg:col-span-1">
+                <div className="p-3 sm:p-4 bg-blue-100 rounded-full mb-4 text-[#1A237E]">
+                  <ShieldCheck className="w-7 h-7 sm:w-8 sm:h-8" />
+                </div>
+                <h3 className="text-lg sm:text-xl font-bold mb-2">Seguridad Total</h3>
+                <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
+                  Conductores certificados y monitoreo constante desde la central de la EMI.
+                </p>
+              </div>
 
-                  <FormField
-                    control={registerForm.control}
-                    name="nombres"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nombres</FormLabel>
-                        <FormControl>
-                          <Input {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+            </div>
+          </div>
+        </section>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <FormField
-                      control={registerForm.control}
-                      name="paterno"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Paterno</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={registerForm.control}
-                      name="materno"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Materno</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+        {/* --- SECCIÓN CONTACTO --- */}
+        <section id="contacto" className="py-12 sm:py-16 md:py-20 bg-white">
+          <div className="container px-4 sm:px-6 md:px-8">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-8 sm:mb-12 text-[#1A237E]">
+              Contáctanos
+            </h2>
+            <div className="grid gap-8 sm:gap-10 md:gap-12 lg:grid-cols-2 max-w-5xl mx-auto">
+              
+              {/* Información de Contacto */}
+              <div className="space-y-6">
+                <h3 className="text-xl sm:text-2xl font-semibold text-[#1A237E]">
+                  Oficina de Transporte
+                </h3>
+                <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
+                  Si tienes dudas sobre tu abono, rutas o sugerencias, estamos disponibles en el Bloque B, Planta Baja.
+                </p>
+                <div className="space-y-4 sm:space-y-5">
+                    <div className="flex items-start gap-3 sm:gap-4">
+                        <MapPin className="text-[#1A237E] w-5 h-5 sm:w-6 sm:h-6 shrink-0 mt-0.5"/> 
+                        <span className="text-sm sm:text-base">Av. Rafael Pabón, Campus Irpavi</span>
+                    </div>
+                    <div className="flex items-start gap-3 sm:gap-4">
+                        <Phone className="text-[#1A237E] w-5 h-5 sm:w-6 sm:h-6 shrink-0 mt-0.5"/> 
+                        <span className="text-sm sm:text-base">(2) 2123456 - Int 104</span>
+                    </div>
+                    <div className="flex items-start gap-3 sm:gap-4">
+                        <Mail className="text-[#1A237E] w-5 h-5 sm:w-6 sm:h-6 shrink-0 mt-0.5"/> 
+                        <span className="text-sm sm:text-base break-all">transporte@emi.edu.bo</span>
+                    </div>
+                </div>
+              </div>
 
-                  <FormField
-                    control={registerForm.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Correo</FormLabel>
-                        <FormControl>
-                          <Input type="email" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+              {/* Formulario de Contacto */}
+              <div className="bg-slate-50 p-5 sm:p-6 md:p-8 rounded-xl border shadow-sm">
+                 <form className="space-y-4 sm:space-y-5">
+                    <div>
+                        <label className="text-sm sm:text-base font-medium mb-1.5 sm:mb-2 block">
+                          Nombre
+                        </label>
+                        <input 
+                          type="text" 
+                          className="w-full p-2.5 sm:p-3 rounded-lg border border-slate-300 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-[#1A237E] focus:border-transparent transition-all" 
+                          placeholder="Tu nombre" 
+                        />
+                    </div>
+                    <div>
+                        <label className="text-sm sm:text-base font-medium mb-1.5 sm:mb-2 block">
+                          Correo Electrónico
+                        </label>
+                        <input 
+                          type="email" 
+                          className="w-full p-2.5 sm:p-3 rounded-lg border border-slate-300 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-[#1A237E] focus:border-transparent transition-all" 
+                          placeholder="tu@email.com" 
+                        />
+                    </div>
+                    <div>
+                        <label className="text-sm sm:text-base font-medium mb-1.5 sm:mb-2 block">
+                          Mensaje
+                        </label>
+                        <textarea 
+                          className="w-full p-2.5 sm:p-3 rounded-lg border border-slate-300 h-28 sm:h-32 text-sm sm:text-base resize-none focus:outline-none focus:ring-2 focus:ring-[#1A237E] focus:border-transparent transition-all" 
+                          placeholder="¿En qué podemos ayudarte?"
+                        ></textarea>
+                    </div>
+                    <Button className="w-full bg-[#1A237E] hover:bg-[#0D1642] h-10 sm:h-11 text-sm sm:text-base font-semibold">
+                      Enviar Mensaje
+                    </Button>
+                 </form>
+              </div>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <FormField
-                      control={registerForm.control}
-                      name="phone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Celular</FormLabel>
-                          <FormControl>
-                            <Input type="tel" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={registerForm.control}
-                      name="password"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Contraseña</FormLabel>
-                          <FormControl>
-                            <Input type="password" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+            </div>
+          </div>
+        </section>
+      </main>
 
-                  <FormField
-                    control={registerForm.control}
-                    name="terms"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 py-2">
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                        <div className="space-y-1 leading-none">
-                          <FormLabel className="text-xs font-normal">
-                            Acepto los términos y condiciones del servicio de
-                            transporte.
-                          </FormLabel>
-                          <FormMessage />
-                        </div>
-                      </FormItem>
-                    )}
-                  />
-
-                  <Button
-                    type="submit"
-                    className="w-full bg-blue-600 hover:bg-blue-700"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? "..." : "Crear Cuenta"}
-                  </Button>
-                </form>
-              </Form>
-            </TabsContent>
-          </Tabs>
-        </div>
-      </div>
+      <Footer />
     </div>
   );
 }
