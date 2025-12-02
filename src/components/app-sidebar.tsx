@@ -8,104 +8,173 @@ import {
   Users,
   Car,
   Bus,
-  Map,
+  Map as MapIcon,
   MapPin,
   BarChart,
   Bot,
   UserCircle,
   History,
-  Route,
+  Route as RouteIcon,
+  Settings,
+  ChevronRight,
 } from 'lucide-react';
+
+// 1. MANTÉN ESTO (Pero quita los Collapsible de aquí si estaban)
 import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
 } from '@/components/ui/sidebar';
+
+// 2. AGREGA ESTA IMPORTACIÓN NUEVA 👇
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from '@/components/ui/collapsible';
+
 import { Logo } from '@/components/logo';
-
-const adminMenuItems = [
-  { href: '/admin', label: 'Principal', icon: LayoutDashboard },
-  { href: '/admin/users', label: 'Gestión de Usuarios', icon: Users },
-  { href: '/admin/drivers', label: 'Registro de Conductores', icon: Car },
-  { href: '/admin/vehicles', label: 'Información de Vehículos', icon: Bus },
-  { href: '/admin/routes', label: 'Gestión de Rutas', icon: Map },
-  { href: '/admin/monitoring', label: 'Monitoreo', icon: MapPin },
-  { href: '/admin/reports', label: 'Reportes', icon: BarChart },
-];
-
-const studentMenuItems = [
-  { href: '/student/profile', label: 'Mi Perfil', icon: UserCircle },
-  { href: '/student/route-map', label: 'Mapa de Rutas', icon: Map },
-  { href: '/student/history', label: 'Historial de Viajes', icon: History },
-  { href: '/student/assistant', label: 'Asistente IA', icon: Bot, tooltip: 'Asistente de Interrupciones IA' },
-];
-
-const driverMenuItems = [
-    { href: '/driver/active-route', label: 'Ruta Activa', icon: Route },
-];
-
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const [role] = React.useState(() => {
-    if (pathname.startsWith('/admin')) return 'admin';
-    if (pathname.startsWith('/student')) return 'student';
-    if (pathname.startsWith('/driver')) return 'driver';
-    return 'admin';
-  });
-
-  const isActive = (href: string) => {
-    return pathname === href;
-  };
-
-  let menuItems: any[] = [];
-  let menuLabel = '';
-
-  switch (role) {
-    case 'admin':
-      menuItems = adminMenuItems;
-      menuLabel = 'Menú Administrador';
-      break;
-    case 'student':
-      menuItems = studentMenuItems;
-      menuLabel = 'Portal Estudiante';
-      break;
-    case 'driver':
-        menuItems = driverMenuItems;
-        menuLabel = 'Portal Conductor';
-        break;
-  }
+  
+  // Detectar Rol (Simple)
+  const role = pathname.startsWith('/admin') ? 'admin' : 
+               pathname.startsWith('/driver') ? 'driver' : 'student';
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-4 flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
-        <Logo className="size-8 shrink-0"/>
-        <h1 className="text-lg font-bold font-headline truncate group-data-[collapsible=icon]:hidden">
-          T.U.E.M.I.
-        </h1>
+      <div className="p-4 flex items-center gap-2 border-b bg-sidebar-accent/10">
+        <Logo className="h-6 w-6 text-primary"/>
+        <span className="font-bold text-lg tracking-tight">T.U.E.M.I.</span>
       </div>
-      <div className="flex-1 overflow-y-auto">
-        <SidebarGroup>
-          <SidebarGroupLabel>{menuLabel}</SidebarGroupLabel>
-          <SidebarMenu>
-            {menuItems.map((item) => (
-              <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton
-                  asChild
-                  isActive={isActive(item.href)}
-                  tooltip={item.tooltip || item.label}
-                >
-                  <Link href={item.href}>
-                    <item.icon />
-                    <span>{item.label}</span>
-                  </Link>
+      
+      <div className="flex-1 overflow-y-auto py-2">
+        
+        {/* --- MENÚ ADMINISTRADOR --- */}
+        {role === 'admin' && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Administración</SidebarGroupLabel>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === '/admin'}>
+                  <Link href="/admin"><LayoutDashboard /> <span>Principal</span></Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarGroup>
+
+              {/* GRUPO GESTIÓN DE RUTAS (DESPLEGABLE) */}
+              <Collapsible asChild defaultOpen={pathname.startsWith('/admin/routes') || pathname.startsWith('/admin/stops')} className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton tooltip="Gestión de Rutas">
+                      <MapIcon />
+                      <span>Gestión de Rutas</span>
+                      <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={pathname === '/admin/stops'}>
+                          <Link href="/admin/stops">
+                            <MapPin className="w-4 h-4 mr-2"/> <span>Paradas</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={pathname === '/admin/routes'}>
+                          <Link href="/admin/routes">
+                            <RouteIcon className="w-4 h-4 mr-2"/> <span>Rutas</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === '/admin/users'}>
+                  <Link href="/admin/users"><Users /> <span>Usuarios</span></Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === '/admin/drivers'}>
+                  <Link href="/admin/drivers"><Car /> <span>Conductores</span></Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === '/admin/vehicles'}>
+                  <Link href="/admin/vehicles"><Bus /> <span>Vehículos</span></Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+               <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === '/admin/monitoring'}>
+                  <Link href="/admin/monitoring"><MapPin /> <span>Monitoreo En Vivo</span></Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === '/admin/reports'}>
+                  <Link href="/admin/reports"><BarChart /> <span>Reportes</span></Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroup>
+        )}
+
+        {/* --- MENÚ ESTUDIANTE --- */}
+        {role === 'student' && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Portal Estudiante</SidebarGroupLabel>
+            <SidebarMenu>
+               <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === '/student/profile'}>
+                  <Link href="/student/profile"><UserCircle /> <span>Mi Credencial</span></Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === '/student/route-map'}>
+                  <Link href="/student/route-map"><MapIcon /> <span>Ver Buses</span></Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === '/student/assistant'}>
+                  <Link href="/student/assistant"><Bot /> <span>Asistente IA</span></Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+               <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === '/student/history'}>
+                  <Link href="/student/history"><History /> <span>Historial</span></Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroup>
+        )}
+
+        {/* --- MENÚ CONDUCTOR --- */}
+        {role === 'driver' && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Portal Conductor</SidebarGroupLabel>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === '/driver/active-route'}>
+                  <Link href="/driver/active-route"><RouteIcon /> <span>Mi Ruta</span></Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === '/driver/settings'}>
+                  <Link href="/driver/settings"><Settings /> <span>Ajustes</span></Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroup>
+        )}
+
       </div>
     </div>
   );

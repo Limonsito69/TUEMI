@@ -11,11 +11,7 @@ import {
 import { AppHeader } from '@/components/app-header';
 import { AppSidebar } from '@/components/app-sidebar';
 
-export default function StudentLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider defaultOpen>
       <Sidebar side="left" collapsible="icon" variant="sidebar">

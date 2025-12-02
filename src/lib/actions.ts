@@ -695,3 +695,45 @@ export async function logout() {
   await deleteSession();
   redirect("/");
 }
+
+// --- GESTIÓN DE PARADAS (NUEVO) ---
+
+export async function getStops() {
+  try {
+    const pool = await getDbPool();
+    const result = await pool.request().query("SELECT Id as id, Nombre as name, Latitud as lat, Longitud as lng FROM Operaciones.Paradas");
+    return result.recordset;
+  } catch (error) {
+    console.error("Error obteniendo paradas:", error);
+    return [];
+  }
+}
+
+export async function createStop(data: { name: string; lat: number; lng: number }) {
+  await requireAdmin(); // Solo admin puede crear
+  try {
+    const pool = await getDbPool();
+    const result = await pool.request()
+      .input("name", sql.NVarChar, data.name)
+      .input("lat", sql.Decimal(9, 6), data.lat)
+      .input("lng", sql.Decimal(9, 6), data.lng)
+      .query("INSERT INTO Operaciones.Paradas (Nombre, Latitud, Longitud, EsPrincipal) OUTPUT INSERTED.Id as id, INSERTED.Nombre as name, INSERTED.Latitud as lat, INSERTED.Longitud as lng VALUES (@name, @lat, @lng, 1)");
+    
+    return result.recordset[0];
+  } catch (error) {
+    console.error("Error creando parada:", error);
+    return null;
+  }
+}
+
+export async function deleteStop(id: number) {
+  await requireAdmin();
+  try {
+    const pool = await getDbPool();
+    await pool.request().input("id", sql.Int, id).query("DELETE FROM Operaciones.Paradas WHERE Id = @id");
+    return true;
+  } catch (error) {
+    console.error("Error eliminando parada:", error);
+    return false;
+  }
+}
