@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -61,7 +61,7 @@ function MapEvents({ onClick }: { onClick?: (e: { lat: number, lng: number }) =>
 }
 
 // --- COMPONENTE PRINCIPAL ---
-export default function Map({ 
+export default function Map({
   trips = [], 
   routes = [], 
   vehicles = [], 
@@ -74,9 +74,12 @@ export default function Map({
   selectedTripId,
   interactive = false
 }: MapProps) {
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    // Fix para iconos de Leaflet en Next.js
+    setIsMounted(true);
+    
+    // Fix iconos Leaflet (igual que antes)
     // @ts-ignore
     delete L.Icon.Default.prototype._getIconUrl;
     L.Icon.Default.mergeOptions({
@@ -85,9 +88,19 @@ export default function Map({
       shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
     });
   }, []);
+  if (!isMounted) {
+    return <div className="h-full w-full bg-slate-100 flex items-center justify-center">Cargando Mapa...</div>;
+  }
 
   return (
-    <MapContainer center={CENTER_LA_PAZ} zoom={14} style={{ height: '100%', width: '100%', zIndex: 0 }}>
+    // 3. IMPORTANTE: key={...} fuerza a React a destruir y recrear el mapa si cambias de página
+    // Usamos una key estática o basada en algo que no cambie a cada rato
+    <MapContainer 
+        key="map-container" 
+        center={CENTER_LA_PAZ} 
+        zoom={14} 
+        style={{ height: '100%', width: '100%', zIndex: 0 }}
+    >
       <TileLayer 
         attribution='&copy; CARTO' 
         url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" 
@@ -98,13 +111,18 @@ export default function Map({
 
       {/* 1. DIBUJAR TODAS LAS PARADAS (Modo Editor) */}
       {stops.map((stop) => {
-        // Verificar si esta parada es parte de la ruta actual (para pintarla de otro color)
+        // ... tu lógica de dibujo de paradas ...
+        // (Copia el contenido que ya tenías aquí)
         const isSelected = routePath.some(r => r.stopId === stop.id);
+        const lat = Number(stop.lat);
+        const lng = Number(stop.lng);
+        if (isNaN(lat) || isNaN(lng)) return null;
+
         return (
           <Marker 
             key={`stop-${stop.id}`} 
-            position={[stop.lat, stop.lng]} 
-            icon={createIcon(isSelected ? '#2563eb' : '#94a3b8')} // Azul si seleccionada, Gris si no
+            position={[lat, lng]} 
+            icon={createIcon(isSelected ? '#2563eb' : '#94a3b8')}
             eventHandlers={{
                 click: () => onStopClick && onStopClick(stop),
             }}
